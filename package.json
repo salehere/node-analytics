@@ -1,0 +1,29 @@
+{
+  "name": "node-analytics",
+  "description": "NodeJS web analytics",
+  "version": "0.1.0",
+  "main": "./node-analytics.js",
+  "author": {
+    "name": "Andrew Lake",
+    "email": "awmlake@gmail.com"
+  },
+  "keywords": ["analytics", "traffic"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/andrao/node-analytics.git"
+  },
+  "bugs": {
+    "url": "http://github.com/andrao/node-analytics/issues"
+  },
+  "dependencies": {
+    "async": "^1.5.2",
+    "cookie": "^0.3.1",
+    "ipware": "0.0.8",
+    "maxmind": "^1.1.0",
+    "mongodb": "^2.1.18",
+    "mongoose": "^4.5.2",
+    "socket.io": "^1.4.8",
+    "useragent": "^2.1.9"
+  }
+}
