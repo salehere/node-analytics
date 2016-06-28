@@ -54,7 +54,7 @@ function analytics(opts_in){
     geoDB();
     socketInit();
     
-    // On page call:
+    // HTTP request:
     return function(req, res, next){
         // Otherwise, log page load
         var session;
@@ -408,7 +408,7 @@ function dbUpdate(session, service, data){
 var log = function(){
     if(opts.log){
         var args = Array.prototype.slice.call(arguments);
-        args.unshift(opts.log_pre);
+        args = log.prefix(args)
         
         console.log.apply(console, args);
     }
@@ -416,7 +416,7 @@ var log = function(){
 log.error = function(){
     if(opts.error_log){
         var args = Array.prototype.slice.call(arguments);
-        args.unshift(opts.error_pre);
+        args = log.prefix(args, true)
         
         console.error.apply(console, args);
     }
@@ -443,8 +443,35 @@ log.session = function(session){
         args[0] = colours.blue(ident) + ' ||';
         
         // add prefix to start
-        args.unshift(opts.log_pre);
+        args = log.prefix(args)
         
         console.log.apply(console, args);
+    }
+}
+log.prefix = function(args, error){
+    // [0] => prefix, [1] => date
+    args.unshift(logDate());
+    
+    if(error) args.unshift(opts.error_pre);
+    else args.unshift(opts.log_pre);
+    
+    return args;
+    
+    function logDate(){
+        var d = new Date();
+        return  d.getFullYear() + '/' +
+                fZ(d.getMonth() + 1) + '/' +
+                fZ(d.getDate()) + ' ' +
+                fZ(d.getHours()) + ':' + 
+                fZ(d.getMinutes()) + ':' + 
+                fZ(d.getSeconds()) + ' ' +
+                tz(d)
+
+        function fZ(v){ return ('0' + v).slice(-2); }
+        function tz(d){
+             var m = d.getTimezoneOffset() / 60;
+             if(m >= 0) return 'GMT+' + m;
+             return 'GMT' + m;
+        }
     }
 }
