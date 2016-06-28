@@ -9,7 +9,8 @@
   },
   "keywords": [
     "analytics",
-    "traffic"
+    "traffic",
+    "logger"
   ],
   "license": "MIT",
   "repository": {
