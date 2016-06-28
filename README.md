@@ -100,7 +100,7 @@ Example use:
 
 Key | Description | Default
 --- | --- | ---
-`ws_host` | Websocket host | `location.protocol + '//' + location.hostname`
+`ws_host` | Websocket host | `location.hostname`
 `ws_port` | Websocket port | 8080
 `click_class` | Click-log class | *na_click*
 `reach_class` | Reach-log class | *na_reach*
