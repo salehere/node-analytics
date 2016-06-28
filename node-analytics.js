@@ -36,8 +36,8 @@ var opts = {
   , db_port:    27017
   , db_name:    'node_analytics_db'
   , ws_port:    8080
-  , mmdb:       path.join(__dirname, 'GeoLite2-City.mmdb')
-  , mmdb_city:  true
+  , geo_ip:     true
+  , mmdb:       '/GeoLite2-City.mmdb'
   , log:        true
   , log_pre:    colours.green('node-analytics') + ' ||'
   , error_log:  true
@@ -186,6 +186,8 @@ function analytics(opts_in){
         
         // .geo :: .city, .state, .country
         function getLocation(callback){
+            if(!geo_lookup) return callback(null);
+            
             var loc = geo_lookup.get(session.ip)
             
             if(loc.city) session.geo.city = loc.city.names.en;
@@ -315,14 +317,16 @@ function mongoDB(){
 
 function geoDB(){
     // Check for mmdb
-    fs.stat(opts.mmdb, function(err, stats){
-        if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb)
-        
-        try { geo_lookup = maxmind.open(opts.mmdb) }
-        catch(e){ return log.error('GeoIP DB read error :: err:', e) }
-        
-        log('GeoIP DB loaded successfully')
-    })
+    if(opts.geo_ip){
+        fs.stat(opts.mmdb, function(err, stats){
+            if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb)
+
+            try { geo_lookup = maxmind.open(opts.mmdb) }
+            catch(e){ return log.error('GeoIP DB read error :: err:', e) }
+
+            log('GeoIP DB loaded successfully')
+        })
+    }
 }
 
 function socketInit(){
@@ -424,13 +428,15 @@ log.session = function(session){
         var user = session.user;
         var ident = user.substr(user.length - 6);
         
-        if(session.geo.city){
-            ident += ' ' + session.geo.city
-            if(session.geo.state) ident += ', ' + session.geo.state
-        }
-        else if(session.geo.state){
+        if(session.geo){
+            if(session.geo.city){
+                ident += ' ' + session.geo.city
+                if(session.geo.state) ident += ', ' + session.geo.state
+            }
+            else if(session.geo.state){
             ident += ' ' + session.geo.state
             if(session.geo.country) ident += ', ' + session.geo.country
+        }
         }
         
         // substitute ident for session in args

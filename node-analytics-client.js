@@ -3,12 +3,11 @@
 // link class has onclick
 
 var na_obj = {
-    link_class:     'na-link'
-  , reach_class:    'na-scroll'
-  , read_class:     'section'
-  , host:           'localhost'
-  , port:           8080
-  , focus:          true
+    ws_host:        'localhost'
+  , ws_port:        8080
+  , click_class:    'na_click'
+  , reach_class:    'na_reach'
+  , read_class:     'na_read'
 };
 var na_socket;
 var na_pause = {};
@@ -21,7 +20,7 @@ var na_pause = {};
     na_obj.pause_data = [];
     
     // init: connect to websocket
-    na_socket = io.connect('http://' + na_obj.host + ':' + na_obj.port);
+    na_socket = io.connect('http://' + na_obj.ws_host + ':' + na_obj.ws_port);
     
     // Calibration
     addEvent(window, 'resize', function(){
@@ -33,7 +32,7 @@ var na_pause = {};
     na_emit('resolution', { width: window.innerWidth, height: window.innerHeight })
     
     // clicks
-    var links = document.getElementsByClassName(na_obj.link_class);
+    var links = document.getElementsByClassName(na_obj.click_class);
     for(var i = 0; i < links.length; i++){
         addEvent(links[i], 'click', function(){
             // has been clicked :: emit to server
@@ -72,7 +71,7 @@ var na_pause = {};
                 
                 // emit last pause
                 if(na_pause.active){
-                    var id = na_pause.active.id || 'pause_section_' + na_pause.index;
+                    var id = na_pause.active.id || 'read_section_' + na_pause.index;
                     
                     if(na_pause.t > 0){
                         na_emit('pause', {
