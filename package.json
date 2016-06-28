@@ -32,6 +32,7 @@
     "useragent": "^2.1.9"
   },
   "scripts": {
-    "patch-release": "git commit -a -m 'patch-release' && npm version patch && npm publish && git push"
+    "patch-commit": "git commit -a -m 'patch-release'",
+    "patch-publish": "npm version patch && npm publish && git push"
   }
 }
