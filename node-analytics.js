@@ -379,7 +379,7 @@ function socketInit(){
             })
             socket.on('pause', function(params){
                session.reqs[req_index].pauses.push(params);
-               log.session(session, 'socket pause in [', id, ']')
+               log.session(session, 'socket pause in [', params, ']')
             })
 
             // Disconnection
@@ -392,7 +392,7 @@ function socketInit(){
                 for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
                 session.session_time = session_t;
 
-                dbUpdate(session, 'times', session_t);
+                sessionSave(session);
                 
                 log.session(session, 'Socket disconnection');
             })
@@ -402,10 +402,10 @@ function socketInit(){
     log('Websocket server established');
 }
 
-function dbUpdate(session, service, data){
+function sessionSave(session){
     session.save(function(err, saved, numAffected) {
-        if(err) return log.error('socket', service, 'update error ::', err)
-        log.session(saved, 'socket', service, 'saved [', data, ']')
+        if(err) return log.error('socket session update error ::', err)
+        log.session(saved, 'socket session saved')
     })
 }
 
