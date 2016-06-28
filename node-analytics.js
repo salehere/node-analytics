@@ -485,7 +485,7 @@ log.prefix = function(args, error){
 function sessions(callback){
     var n = 32;
     
-    Session.find({})
+    Session.find({is_bot: false})
             .sort({date: 'desc'})
             .limit(n)
             .exec(function(err, results){
