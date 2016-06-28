@@ -453,7 +453,7 @@ log.session = function(session){
         console.log.apply(console, args);
     }
 }
-<<<<<<< HEAD
+
 log.prefix = function(args, error){
     // [0] => prefix, [1] => date
     args.unshift(logDate());
@@ -480,7 +480,7 @@ log.prefix = function(args, error){
              return 'GMT' + m;
         }
     }
-=======
+}
 
 function sessions(callback){
     var n = 32;
@@ -491,7 +491,5 @@ function sessions(callback){
             .exec(function(err, results){
                 if(err) log.error('Sessions query error:', err)
                 callback(err, results)
-            }
-    )
->>>>>>> read_db
+            });
 }
