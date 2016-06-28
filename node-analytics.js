@@ -179,9 +179,7 @@ function analytics(opts_in){
         
         // .ip
         function getIp(callback){
-            //session.ip = get_ip(req).clientIp
-            session.ip = '208.110.83.202'
-            
+            session.ip = get_ip(req).clientIp
             callback(null)
         }
         
