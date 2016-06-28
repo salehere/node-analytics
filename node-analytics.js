@@ -37,7 +37,7 @@ var opts = {
   , db_name:    'node_analytics_db'
   , ws_port:    8080
   , geo_ip:     true
-  , mmdb:       '/GeoLite2-City.mmdb'
+  , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
   , log_pre:    colours.green('node-analytics') + ' ||'
   , error_log:  true
