@@ -35,7 +35,7 @@ app.use(analytics());   // beneath express.static
 
 #### Client
 
-The client script **node-analytics-client.js** must be included on the served webpage following the [socket.io](http://socket.io/) client script.
+The client script **node-analytics-client.js** must be included on the served webpage beneath the [socket.io](http://socket.io/) client script.
 
 ```html
 <script type='text/javascript' src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
