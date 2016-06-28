@@ -1,13 +1,16 @@
 {
   "name": "node-analytics",
   "description": "NodeJS web analytics",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "./node-analytics.js",
   "author": {
     "name": "Andrew Lake",
     "email": "awmlake@gmail.com"
   },
-  "keywords": ["analytics", "traffic"],
+  "keywords": [
+    "analytics",
+    "traffic"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
