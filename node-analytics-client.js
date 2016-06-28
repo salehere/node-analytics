@@ -3,7 +3,7 @@
 // link class has onclick
 
 var na_obj = {
-    ws_host:        'localhost'
+    ws_host:        location.protocol + '//' + location.hostname
   , ws_port:        8080
   , click_class:    'na_click'
   , reach_class:    'na_reach'
