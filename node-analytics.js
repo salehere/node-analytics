@@ -274,6 +274,7 @@ function mongoDB(){
         user: { type: String, index: true }
       , date: { type: Date, default: Date.now }
       , ip: String
+      , is_bot: { type: Boolean, default: true }
       , geo: {
                 city:    { type: String, index: true }
               , state:   { type: String, index: true }
@@ -355,6 +356,9 @@ function socketInit(){
         }
 
         function socketResponse(){
+            session.is_bot = false;
+            dbUpdate(session, 'is_bot', false)
+            
             socket.on('resolution', function(params){
                 // Set only once
                 if(!session.resolution){
