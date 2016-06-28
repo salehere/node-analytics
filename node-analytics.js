@@ -30,6 +30,7 @@ var db
 // -------------------------------------------------------------
 
 module.exports = analytics;
+module.exports.sessions = sessions;
 
 var opts = {
     db_host:    'localhost'
@@ -447,4 +448,17 @@ log.session = function(session){
         
         console.log.apply(console, args);
     }
+}
+
+function sessions(callback){
+    var n = 32;
+    
+    Session.find({})
+            .sort({date: 'desc'})
+            .limit(n)
+            .exec(function(err, results){
+                if(err) log.error('Sessions query error:', err)
+                callback(err, results)
+            }
+    )
 }
