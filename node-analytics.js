@@ -357,8 +357,10 @@ function socketInit(){
         }
 
         function socketResponse(){
-            session.is_bot = false;
-            dbUpdate(session, 'is_bot', false)
+            if(session.is_bot){
+                session.is_bot = false;
+                dbUpdate(session, 'is_bot', false)
+            }
             
             socket.on('resolution', function(params){
                 // Set only once
@@ -453,10 +455,9 @@ log.session = function(session){
         console.log.apply(console, args);
     }
 }
-
 log.prefix = function(args, error){
     // [0] => prefix, [1] => date
-    args.unshift(logDate());
+    args.unshift(logDate() + ' ||');
     
     if(error) args.unshift(opts.error_pre);
     else args.unshift(opts.log_pre);
@@ -482,10 +483,14 @@ log.prefix = function(args, error){
     }
 }
 
-function sessions(callback){
+function sessions(options, callback){
+    if(!callback){
+        callback = options;
+        options = {is_bot: false}
+    }
     var n = 32;
     
-    Session.find({is_bot: false})
+    Session.find(options)
             .sort({date: 'desc'})
             .limit(n)
             .exec(function(err, results){
