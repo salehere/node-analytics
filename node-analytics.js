@@ -44,7 +44,8 @@ var opts = {
   , error_pre:  colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
 }
 
-console.log(colours.green('node-analytics') + ' active: wait for MongoDB, GeoIP, & WebSocket')
+console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
+console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "from to public directory")
 
 function analytics(opts_in){
     for(var k in opts_in) opts[k] = opts_in[k];
