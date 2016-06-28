@@ -359,43 +359,40 @@ function socketInit(){
         function socketResponse(){
             if(session.is_bot){
                 session.is_bot = false;
-                dbUpdate(session, 'is_bot', false)
+                log.session(session, 'socket is_bot in [', false, ']')
             }
             
             socket.on('resolution', function(params){
                 // Set only once
                 if(!session.resolution){
                     session.resolution = params;
-                    dbUpdate(session, 'resolution', params)
+                    log.session(session, 'socket resolution in [', params, ']')
                 }
             })
             socket.on('click', function(id){
                 session.reqs[req_index].clicks.push(id);
-                dbUpdate(session, 'click', id)
+                log.session(session, 'socket click in [', id, ']')
             })
             socket.on('reach', function(id){
                 session.reqs[req_index].reaches.push(id);
-                dbUpdate(session, 'reach', id)
+                log.session(session, 'socket reach in [', id, ']')
             })
             socket.on('pause', function(params){
                session.reqs[req_index].pauses.push(params);
-               dbUpdate(session, 'pause', params)
+               log.session(session, 'socket pause in [', id, ']')
             })
 
             // Disconnection
             socket.on('disconnect', function() {
-                // function is only to allow minimization
-                (function(){
-                    // group session time from req times; update
-                    var t = (Date.now() - session_start) / 1000;
-                    session.reqs[req_index].time = t;
+                // group session time from req times; update
+                var t = (Date.now() - session_start) / 1000;
+                session.reqs[req_index].time = t;
 
-                    var session_t = 0;
-                    for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
-                    session.session_time = session_t;
+                var session_t = 0;
+                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
+                session.session_time = session_t;
 
-                    dbUpdate(session, 'time', t);
-                })();
+                dbUpdate(session, 'times', session_t);
                 
                 log.session(session, 'Socket disconnection');
             })
@@ -408,7 +405,7 @@ function socketInit(){
 function dbUpdate(session, service, data){
     session.save(function(err, saved, numAffected) {
         if(err) return log.error('socket', service, 'update error ::', err)
-        log.session(saved, 'socket', service, 'updated [', data, ']')
+        log.session(saved, 'socket', service, 'saved [', data, ']')
     })
 }
 
