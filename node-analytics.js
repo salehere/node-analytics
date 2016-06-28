@@ -345,11 +345,11 @@ function socketInit(){
         
         if(session_id){
             Session.findById(session_id, function(err, result){
-                if(err) return log.error('Session find error :: id[s.io]', session_id, err)
-                if(!result) return log.error('Session not found :: id[s.io]', session_id)
+                if(err) return log.error('Session find error :: id[socket]', session_id, err)
+                if(!result) return log.error('Session not found :: id[socket]', session_id)
 
                 session = result;
-                log.session(session, 's.io connected')
+                log.session(session, 'Socket connected')
                 socketResponse();
             })
         }
@@ -390,7 +390,7 @@ function socketInit(){
                     dbUpdate(session, 'time', t);
                 })();
                 
-                log.session(session, 's.io disconnection');
+                log.session(session, 'Socket disconnection');
             })
         }
     })
@@ -400,8 +400,8 @@ function socketInit(){
 
 function dbUpdate(session, service, data){
     session.save(function(err, saved, numAffected) {
-        if(err) return log.error('s.io', service, 'update error ::', err)
-        log.session(saved, 's.io', service, 'updated [', data, ']')
+        if(err) return log.error('socket', service, 'update error ::', err)
+        log.session(saved, 'socket', service, 'updated [', data, ']')
     })
 }
 
