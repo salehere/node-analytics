@@ -46,7 +46,7 @@ var opts = {
 }
 
 console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
-console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "from to public directory")
+console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory")
 
 function analytics(opts_in){
     for(var k in opts_in) opts[k] = opts_in[k];
@@ -218,6 +218,7 @@ function analytics(opts_in){
             
             sesreq.host = req.hostname;
             sesreq.url  = req.url;
+            sesreq.query = [];
             
             for(var field in req.query){
                 if(field === 'ref') sesreq.ref = req.query[field]
