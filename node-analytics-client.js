@@ -94,9 +94,11 @@ var na_pause = {};
     // pauses: window focus
     addEvent(window, 'focus', function(){
         na_timer_start();
+        na_emit('focus');
     })
     addEvent(window, 'blur', function(){
         clearInterval(na_pause.timer);
+        na_emit('blur');
     })
     
     function addEvent(obj, type, fn){

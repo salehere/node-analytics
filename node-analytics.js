@@ -345,6 +345,8 @@ function socketInit(){
         
         var session, request;
         var session_start = Date.now();
+        var blurred = 0;
+        var blurring = Date.now();
         
         // Get session
         if(session_id){
@@ -397,11 +399,19 @@ function socketInit(){
                log.session(session, 'socket pause in [', params, ']')
                //request.reaches.push(params);
             })
+            
+            // session timer
+            socket.on('blur', function(){
+                blurring = Date.now();
+            })
+            socket.on('focus', function(){
+                blurred += Date.now() - blurring;
+            })
 
             // Disconnection
             socket.on('disconnect', function() {
-                // request time
-                var t = (Date.now() - session_start) / 1000;
+                // request time, sans blurred time
+                var t = (Date.now() - session_start - blurred) / 1000;
                 
                 // total session time; begin with this request
                 var session_t = t;
