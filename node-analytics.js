@@ -359,8 +359,6 @@ function socketInit(){
                 request = session.reqs[req_index];
                 // could alternatively get request by session.reqs.id with req_id cookie
                 
-                console.log('session in', session)
-                
                 // log and initiate socket sensitivity
                 log.session(session, 'socket connected, request:', request._id)
                 socketResponse();
