@@ -333,7 +333,7 @@ function geoDB(){
 function socketInit(){
     io = s_io(opts.ws_port);
     io.use(function(socket, next){
-        var cookies = cookie.parse(socket.handshake.headers.cookie || null);
+        var cookies = cookie.parse(socket.handshake.headers.cookie) || null;
         if(cookies && cookies.na_session) next();
         else log.error('Socket authentication error; no session cookie')
     })
@@ -351,7 +351,7 @@ function socketInit(){
                 if(!result) return log.error('Session not found :: id[socket]', session_id)
 
                 session = result;
-                log.session(session, 'Socket connected')
+                log.session(session, 'Socket CONNECTED')
                 socketResponse();
             })
         }
@@ -394,7 +394,7 @@ function socketInit(){
 
                 sessionSave(session);
                 
-                log.session(session, 'Socket disconnection');
+                log.session(session, 'socket DISCONNECTED');
             })
         }
     })
