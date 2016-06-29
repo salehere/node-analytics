@@ -190,11 +190,14 @@ function analytics(opts_in){
             
             var loc = geo_lookup.get(session.ip)
             
-            if(loc.city) session.geo.city = loc.city.names.en;
-            if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
-            if(loc.country) session.geo.country = loc.country.iso_code;
-            if(loc.continent) session.geo.continent = loc.continent.code;
-            if(loc.location) session.geo.time_zone = loc.location.time_zone;
+            try{
+                if(loc.city) session.geo.city = loc.city.names.en;
+                if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
+                if(loc.country) session.geo.country = loc.country.iso_code;
+                if(loc.continent) session.geo.continent = loc.continent.code;
+                if(loc.location) session.geo.time_zone = loc.location.time_zone;
+            }
+            catch(e){ log.error('geoIP error:', e); }
             
             callback(null)
         }
