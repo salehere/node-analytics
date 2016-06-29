@@ -59,206 +59,198 @@ function analytics(opts_in){
     return function(req, res, next){
         // Otherwise, log page load
         var session;
-        
+
         async.series([
                 getSession
-              , function(callback){
-                    async.parallel([
-                            getIp
-                          , getLocation
-                          , getSystem
-                          , getReqData
-                        ],
-                        function(errs){
-                            if(errs) log.error(errs)
-                            callback(null);
-                        }
-                    );
-              }
-              , saveSession
-            ]
-          , function(errs){
-              if(errs) log.error(errs)
-              next();
-          }
-        )
-        
-        // .userID >> set cookie
-        function getSession(callback){
-            
-            async.series([
-                    setSession
-                  , setCookies
+              , setCookies
+              , newRequest
+            ],
+            function(err, results){
+                if(err) log.error(err)
+
+                var new_session = results[0];   // [getSession] boolean
+                var request = results[2];       // [newRequest] request document
+
+                async.series([
+                    function(callback){
+                        sessionData(new_session, callback)
+                    }
+                  , function(callback){
+                        sessionSave(new_session, request, callback)
+                  }
                 ],
-                function(errs){
-                    if(errs) log.error(errs)
-                    callback(null);
-                }
-            )
-            
-            function setSession(callback){
-                var cookies = cookie.parse(req.headers.cookie || '');
-            
-                // cookies.na_session  :: session._id
-                // cookies.na_user     :: session.user
-                
-                // Establish session: new/old session? new/old user?
-                if(cookies.na_session){
-                    log('Session cookie found:', cookies.na_session)
-                    
-                    Session.findById(cookies.na_session, function(err, result){
-                        if(err) log.error(err)
-                        
-                        if(!result){
-                            log.error('Session not found :: id[cookie]:', cookies.na_session)
-
-                            // send to check if user instead
-                            if(cookies.na_user) userSession()
-                            else newSession()
-                        }
-                        else {
-                            log('Session continues :: id:', cookies.na_session)
-                            session = result;
-
-                            callback(null)
-                        }
-                    })
-                }
-                else if(cookies.na_user) userSession()
-                else newSession()
-                
-                function userSession(){
-                    log('User cookie found:', cookies.na_user)
-                    session = new Session({ user: cookies.na_user })
-                    log('Old user, new session :: user:', session.user)
-
-                    callback(null)
-                }
-                function newSession(){
-                    session = new Session();   
-                    session.user = session._id.toString();
-                    log('New user, new session :: user:', session.user)
-
-                    callback(null)
-                }
+                function(err){
+                    if(err) log.error(err);
+                    next();
+                });
             }
-            
-            function setCookies(callback){
-                // Set cookies
-                res.cookie('na_session', session._id.toString(), {
-                    maxAge:     1000 * 60 * 15              // 15 mins
-                  , httpOnly:   true
+        );
+        
+        // populate var session; returns boolean on whether newly formed
+        function getSession(callback){
+            var cookies = cookie.parse(req.headers.cookie || '');
+
+            // cookies.na_session  :: session._id
+            // cookies.na_user     :: session.user
+
+            // Establish session: new/old session? new/old user?
+            if(cookies.na_session){
+                log('Session cookie found:', cookies.na_session)
+
+                Session.findById(cookies.na_session, function(err, result){
+                    if(err) log.error(err)
+
+                    if(!result){
+                        log.error('Session not found :: id[cookie]:', cookies.na_session)
+
+                        // send to check if user instead
+                        if(cookies.na_user) userSession();
+                        else newSession();
+                    }
+                    else {
+                        log('Session continues :: id:', cookies.na_session)
+                        session = result;
+
+                        callback(null, false);
+                    }
                 })
-                res.cookie('na_user', session.user, {
-                    maxAge:     1000 * 60 * 60 * 24 * 365   // 1 year
-                  , httpOnly:   true
-                })
-                
-                callback(null)
             }
-            
-            function encrypt(text){
-                var cipher = crypto.createCipher('aes192', 'a password');
-                var encrypted = cipher.update(text, 'utf8', 'hex');
-                encrypted += cipher.final('hex');
-                
-                log('Encrypted', text, encrypted)
-                
-                return encrypted;
-            }
-            function decrypt(text){
-                var decipher = crypto.createDecipher('aes192', 'a password');
-                
-                var decrypted = decipher.update(text, 'hex', 'utf8');
-                decrypted += decipher.final('utf8');
-                
-                log('Decrypted', text, decrypted)
-                
-                return decrypted;
-            }
-        }
-        
-        // .ip
-        function getIp(callback){
-            session.ip = get_ip(req).clientIp
-            callback(null)
-        }
-        
-        // .geo :: .city, .state, .country
-        function getLocation(callback){
-            if(!geo_lookup) return callback(null);
-            
-            var loc = geo_lookup.get(session.ip)
-            
-            try{
-                if(loc.city) session.geo.city = loc.city.names.en;
-                if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
-                if(loc.country) session.geo.country = loc.country.iso_code;
-                if(loc.continent) session.geo.continent = loc.continent.code;
-                if(loc.location) session.geo.time_zone = loc.location.time_zone;
-            }
-            catch(e){ log.error('geoIP error:', e); }
-            
-            callback(null)
-        }
-        
-        // .system :: .os{, .broswer{ .name, .version
-        function getSystem(callback){
-            var agent = useragent.parse(req.headers['user-agent']);
-            var os = agent.os;
-            session.system.browser.name = agent.family;
-            session.system.browser.version = agent.major + '.' + agent.minor + '.' + agent.patch
+            else if(cookies.na_user) userSession();
+            else newSession();
 
-            session.system.os.name = os.family;
-            session.system.os.version = os.major + '.' + os.minor + '.' + os.patch
-            
+            function userSession(){
+                log('User cookie found:', cookies.na_user)
+                session = new Session({ user: cookies.na_user })
+                log('Old user, new session :: user:', session.user)
+
+                callback(null, true)
+            }
+            function newSession(){
+                session = new Session();   
+                session.user = session._id.toString();
+                log('New user, new session :: user:', session.user)
+
+                callback(null, true)
+            }
+        }
+
+        // set cookies
+        function setCookies(callback){
+            // Set cookies
+            res.cookie('na_session', session._id.toString(), {
+                maxAge:     1000 * 60 * 15              // 15 mins
+              , httpOnly:   true
+            })
+            res.cookie('na_user', session.user, {
+                maxAge:     1000 * 60 * 60 * 24 * 365   // 1 year
+              , httpOnly:   true
+            })
+
             callback(null)
         }
-        
-        // .req :: .host, .url, .query, .ref
-        function getReqData(callback){
-            var sesreq = {}
             
-            sesreq.host = req.hostname;
-            sesreq.url  = req.url;
-            sesreq.query = [];
-            
+        // return new request document
+        function newRequest(callback){
+            var request = new Request();
+            request.host = req.hostname;
+            request.url = req.url;
+
+            // populate request query
             for(var field in req.query){
-                if(field === 'ref') sesreq.ref = req.query[field]
+                if(field === 'ref') request.ref = req.query[field]
                 else {
-                    sesreq.query.push({
+                    request.query.push({
                         field: field
                       , value: req.query[field]
                     })
                 }
             }
+
+            // add request index cookie
+            var req_index = session.reqs.length;
+            res.cookie('na_req_index', req_index, {
+                maxAge:     1000 * 60 * 15              // 15 mins
+              , httpOnly:   true
+            })
+
+            // return request object: will be added at sessionSave();
+            callback(null, request)
+        }
             
-            session.reqs.push(sesreq)
+        // append session data
+        function sessionData(new_session, callback){
+            // no need to run if picking up from old session
+            if(!new_session) return callback(null);
             
-            res.cookie('na_req_ind', session.reqs.length - 1, {
-                    maxAge:     1000 * 60 * 15              // 15 mins
-                  , httpOnly:   true
-                })
+            async.parallel([
+                    getIp
+                  , getLocation
+                  , getSystem
+                ],
+                function(err){
+                    if(err) callback(err);
+                    callback(null);
+                }
+            );
             
-            callback(null)
+            // .ip
+            function getIp(callback){
+                session.ip = get_ip(req).clientIp
+                callback(null)
+            }
+
+            // .geo :: .city, .state, .country
+            function getLocation(callback){
+                if(!geo_lookup) return callback(null);
+
+                var loc = geo_lookup.get(session.ip)
+
+                try{
+                    if(loc.city) session.geo.city = loc.city.names.en;
+                    if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
+                    if(loc.country) session.geo.country = loc.country.iso_code;
+                    if(loc.continent) session.geo.continent = loc.continent.code;
+                    if(loc.location) session.geo.time_zone = loc.location.time_zone;
+                }
+                catch(e){ log.error('geoIP error:', e); }
+
+                callback(null)
+            }
+
+            // .system :: .os{, .broswer{ .name, .version
+            function getSystem(callback){
+                var agent = useragent.parse(req.headers['user-agent']);
+                var os = agent.os;
+                session.system.browser.name = agent.family;
+                session.system.browser.version = agent.major + '.' + agent.minor + '.' + agent.patch
+
+                session.system.os.name = os.family;
+                session.system.os.version = os.major + '.' + os.minor + '.' + os.patch
+
+                callback(null)
+            }
         }
         
-        // CLIENT
-        // resolution [once]
-        // session_length [total]
-        // time
-        // reaches
-        // pauses
-        // clicks
-        
-        function saveSession(callback){
-            // Update DB
-            session.save(function(err){
-                if(err) return callback(err)
-                
-                log.session(session, 'Session instantiated')
-                callback(null)
-            })
+        // save / update session to DB & proceed to socket
+        function sessionSave(new_session, request, callback){
+            if(new_session){
+                session.reqs.push(request);
+                session.save(function(err){
+                    if(err) return callback('session save error')
+                    
+                    log.session(session, 'session active [ new ]')
+                    return callback(null);
+                });
+            }
+            else {
+                // an old session: all that needs be updated is request
+                update.session(session, {$push: {reqs: request}}, function(err){
+                    if(err) return callback('new request not added to session', session._id)
+
+                    log.session(session, 'session active [ updated ]')
+                    callback(null);
+                });
+            }
         }
     }
 }
@@ -275,6 +267,20 @@ function mongoDB(){
     });
     
     // Schema
+    var Request_Schema = mongoose.Schema({
+        host: String
+      , url: { type: String, index: true }
+      , query: [{ field: String, value: String }]
+      , ref: { type: String, index: true }
+      , time: Number
+      , reaches: [String]
+      , pauses: [{
+            section: String
+          , time: Number
+        }]
+      , clicks: [String]
+    });
+    
     var Session_Schema = mongoose.Schema({
         user: { type: String, index: true }
       , date: { type: Date, default: Date.now }
@@ -302,21 +308,10 @@ function mongoDB(){
                 width: Number
               , height: Number
             }
-      , reqs: [{
-                host: String
-              , url: { type: String, index: true }
-              , query: [{ field: String, value: String }]
-              , ref: { type: String, index: true }
-              , time: Number
-              , reaches: [String]
-              , pauses: [{
-                    section: String
-                  , time: Number
-                }]
-              , clicks: [String]
-           }]
-    })
+      , reqs: [Request_Schema]
+    });
     
+    Request = mongoose.model('Request', Request_Schema);
     Session = mongoose.model('Session', Session_Schema);
 }
 
@@ -346,61 +341,80 @@ function socketInit(){
     io.on('connection', function(socket) {
         var cookies = cookie.parse(socket.handshake.headers.cookie || '');
         var session_id = cookies.na_session;
-        var req_index = parseInt(cookies.na_req_ind)
-        var session;
+        var req_index = cookies.na_req_index;
         
+        var session, request;
         var session_start = Date.now();
         
+        // Get session
         if(session_id){
             Session.findById(session_id, function(err, result){
                 if(err) return log.error('Session find error :: id[socket]', session_id, err)
                 if(!result) return log.error('Session not found :: id[socket]', session_id)
 
+                // set regional session and request
                 session = result;
-                log.session(session, 'Socket CONNECTED')
+                request = session.reqs[req_index];
+                // could alternatively get request by session.reqs.id with req_id cookie
+                
+                console.log('session in', session)
+                
+                // log and initiate socket sensitivity
+                log.session(session, 'socket connected, request:', request._id)
                 socketResponse();
             })
         }
-
+        
         function socketResponse(){
+            // session updates
             if(session.is_bot){
-                session.is_bot = false;
-                log.session(session, 'socket is_bot in [', false, ']')
+                update.session(session, { is_bot: false });
+                //log.session(session, 'socket is_bot in [', false, ']')
             }
             
-            socket.on('resolution', function(params){
-                // Set only once
-                if(!session.resolution){
-                    session.resolution = params;
-                    log.session(session, 'socket resolution in [', params, ']')
-                }
-            })
+            if(!session.resolution){
+                socket.on('resolution', function(params){
+                    update.session(session, { resolution: params });
+                });
+            }
+            
+            // request updates
             socket.on('click', function(id){
-                session.reqs[req_index].clicks.push(id);
+                update.request(session, request, { $push: { clicks : id }})
+                //session.reqs[req_index].clicks.push(id);
                 log.session(session, 'socket click in [', id, ']')
+                //request.clicks.push(id);
             })
             socket.on('reach', function(id){
-                session.reqs[req_index].reaches.push(id);
+                update.request(session, request, { $push: { reaches: id }})
+                //session.reqs[req_index].reaches.push(id);
                 log.session(session, 'socket reach in [', id, ']')
+                //request.reaches.push(id);
             })
             socket.on('pause', function(params){
-               session.reqs[req_index].pauses.push(params);
+               update.request(session, request, { $push: { pauses: params }})
+               //session.reqs[req_index].pauses.push(params);
                log.session(session, 'socket pause in [', params, ']')
+               //request.reaches.push(params);
             })
 
             // Disconnection
             socket.on('disconnect', function() {
-                // group session time from req times; update
+                // request time
                 var t = (Date.now() - session_start) / 1000;
-                session.reqs[req_index].time = t;
-
-                var session_t = 0;
-                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
-                session.session_time = session_t;
-
-                sessionSave(session);
                 
-                log.session(session, 'socket DISCONNECTED');
+                // total session time; begin with this request
+                var session_t = t;
+                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
+                
+                // update request & session
+                request.time = t;
+                update.request(session, request, { time: t });
+                
+                update.session(session, { session_time: session_t });
+                //update.request(session, request);
+                
+                log.session(session, 'socket disconnected');
             })
         }
     })
@@ -408,11 +422,58 @@ function socketInit(){
     log('Websocket server established');
 }
 
-function sessionSave(session){
-    session.save(function(err, saved, numAffected) {
-        if(err) return log.error('socket session update error ::', err)
-        log.session(saved, 'socket session saved')
-    })
+var update = {
+    session: function(session, params, callback){
+        var keys = update._keys(params);
+        
+        Session.update({_id: session._id}, params, function(err, raw){
+            if(err) log.error('session update error [', keys, ']', session._id, err);
+            else log.session(session, 'session updated [', keys, ']', session._id);
+            
+            if(callback) return callback(err);
+        })
+    },
+    request: function(session, request, params_in, callback){
+        //update.request(session, request, { $push: { clicks : id }})
+        //update.request(session, request, { time: t })
+        
+        var params = {};
+        
+        for(var k in params_in){
+            if(k === '$push'){
+                if(!params.$push) params.$push = {};
+                
+                for(var l in params_in.$push){
+                    var key = update._reqkey(l)
+                    params.$push[key] = params_in.$push[l];
+                }
+            }
+            else {
+                var key = update._reqkey(k)
+                params[key] = params_in[k];
+            }
+        }
+        
+        var keys = update._keys(params);
+        
+        Session.update({_id: session._id, "reqs._id": request._id}, params, function(err, raw){
+            if(err) log.error('request update error [', keys, ']', request._id, err);
+            else log.session(session, 'request updated [', keys, ']', raw);
+            
+            if(callback) return callback(err);
+        })
+    },
+    _keys: function(params){
+        var keys = [];
+        for(var k in params){
+            if(k === '$push'){ for(var l in params[k]) keys.push(l); }
+            else  keys.push(k);
+        }
+        return keys;
+    },
+    _reqkey: function(key){
+        return 'reqs.$.' + key;
+    }
 }
 
 var log = function(){
@@ -501,3 +562,23 @@ function sessions(options, callback){
                 callback(err, results)
             });
 }
+
+/*function encrypt(text){
+                var cipher = crypto.createCipher('aes192', 'a password');
+                var encrypted = cipher.update(text, 'utf8', 'hex');
+                encrypted += cipher.final('hex');
+                
+                log('Encrypted', text, encrypted)
+                
+                return encrypted;
+            }
+            function decrypt(text){
+                var decipher = crypto.createDecipher('aes192', 'a password');
+                
+                var decrypted = decipher.update(text, 'hex', 'utf8');
+                decrypted += decipher.final('utf8');
+                
+                log('Decrypted', text, decrypted)
+                
+                return decrypted;
+            }*/
