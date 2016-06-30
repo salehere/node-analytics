@@ -415,7 +415,7 @@ function socketInit(){
                 for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
                 
                 // update request & session
-                request.time = t;
+                if(if_req) request.time = t;
                 if(if_req) update.request(session, request, { time: t });
                 
                 update.session(session, { session_time: session_t });
