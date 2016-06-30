@@ -434,7 +434,7 @@ var update = {
         
         Session.update({_id: session._id}, params, function(err, raw){
             if(err) log.error('session update error [', keys, ']', session._id, err);
-            else log.session(session, 'session updated [', keys, ']', session._id);
+            else log.session(session, 'session updated [', keys, ']');
             
             if(callback) return callback(err);
         })
@@ -546,7 +546,7 @@ log.prefix = function(args, error){
 
         function fZ(v){ return ('0' + v).slice(-2); }
         function tz(d){
-             var m = d.getTimezoneOffset() / 60;
+             var m = d.getTimezoneOffset() / -60;
              if(m >= 0) return 'GMT+' + m;
              return 'GMT' + m;
         }
@@ -568,23 +568,3 @@ function sessions(options, callback){
                 callback(err, results)
             });
 }
-
-/*function encrypt(text){
-                var cipher = crypto.createCipher('aes192', 'a password');
-                var encrypted = cipher.update(text, 'utf8', 'hex');
-                encrypted += cipher.final('hex');
-                
-                log('Encrypted', text, encrypted)
-                
-                return encrypted;
-            }
-            function decrypt(text){
-                var decipher = crypto.createDecipher('aes192', 'a password');
-                
-                var decrypted = decipher.update(text, 'hex', 'utf8');
-                decrypted += decipher.final('utf8');
-                
-                log('Decrypted', text, decrypted)
-                
-                return decrypted;
-            }*/
