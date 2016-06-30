@@ -360,16 +360,21 @@ function socketInit(){
                 // could alternatively get request by session.reqs.id with req_id cookie
                 
                 // log and initiate socket sensitivity
-                log.session(session, 'socket connected, request:', request._id)
-                socketResponse();
+                if(request){
+                    log.session(session, 'socket connected, request:', request._id)
+                    socketResponse();
+                }
+                else {
+                    log.error('socket connected, request not found');
+                    socketResponse(true);
+                }
             })
         }
         
-        function socketResponse(){
+        function socketResponse(if_req){
             // session updates
             if(session.is_bot){
                 update.session(session, { is_bot: false });
-                //log.session(session, 'socket is_bot in [', false, ']')
             }
             
             if(!session.resolution){
@@ -380,22 +385,16 @@ function socketInit(){
             
             // request updates
             socket.on('click', function(id){
-                update.request(session, request, { $push: { clicks : id }})
-                //session.reqs[req_index].clicks.push(id);
+                if(if_req) update.request(session, request, { $push: { clicks : id }})
                 log.session(session, 'socket click in [', id, ']')
-                //request.clicks.push(id);
             })
             socket.on('reach', function(id){
-                update.request(session, request, { $push: { reaches: id }})
-                //session.reqs[req_index].reaches.push(id);
+                if(if_req) update.request(session, request, { $push: { reaches: id }})
                 log.session(session, 'socket reach in [', id, ']')
-                //request.reaches.push(id);
             })
             socket.on('pause', function(params){
-               update.request(session, request, { $push: { pauses: params }})
-               //session.reqs[req_index].pauses.push(params);
+               if(if_req) update.request(session, request, { $push: { pauses: params }})
                log.session(session, 'socket pause in [', params, ']')
-               //request.reaches.push(params);
             })
             
             // session timer
@@ -417,10 +416,9 @@ function socketInit(){
                 
                 // update request & session
                 request.time = t;
-                update.request(session, request, { time: t });
+                if(if_req) update.request(session, request, { time: t });
                 
                 update.session(session, { session_time: session_t });
-                //update.request(session, request);
                 
                 log.session(session, 'socket disconnected');
             })
