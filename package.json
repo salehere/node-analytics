@@ -24,6 +24,7 @@
     "async": "^1.5.2",
     "colors": "^1.1.2",
     "cookie": "^0.3.1",
+    "crypto-js": "^3.1.6",
     "ipware": "0.0.8",
     "maxmind": "^1.1.0",
     "mongodb": "^2.1.18",

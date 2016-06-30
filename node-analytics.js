@@ -8,7 +8,6 @@
 var fs = require('fs')
 ,   path = require('path')
 ,   http = require('http')
-,   crypto = require('crypto')
 
 // installed
 var get_ip = require('ipware')().get_ip
@@ -18,7 +17,8 @@ var get_ip = require('ipware')().get_ip
 ,   cookie = require('cookie')
 ,   async = require('async')
 ,   s_io = require('socket.io')
-,   colours = require('colors/safe');
+,   colours = require('colors/safe')
+,   CryptoJS = require('crypto-js')
 
 // globals
 var db
@@ -95,20 +95,22 @@ function analytics(opts_in){
 
             // Establish session: new/old session? new/old user?
             if(cookies.na_session){
-                log('Session cookie found:', cookies.na_session)
+                var na_session = decrypt(cookies.na_session);
+                
+                log('Session cookie found:', na_session)
 
-                Session.findById(cookies.na_session, function(err, result){
+                Session.findById(na_session, function(err, result){
                     if(err) log.error(err)
 
                     if(!result){
-                        log.error('Session not found :: id[cookie]:', cookies.na_session)
+                        log.error('Session not found :: id[cookie]:', na_session)
 
                         // send to check if user instead
                         if(cookies.na_user) userSession();
                         else newSession();
                     }
                     else {
-                        log('Session continues :: id:', cookies.na_session)
+                        log('Session continues :: id:', na_session)
                         session = result;
 
                         callback(null, false);
@@ -119,8 +121,10 @@ function analytics(opts_in){
             else newSession();
 
             function userSession(){
-                log('User cookie found:', cookies.na_user)
-                session = new Session({ user: cookies.na_user })
+                var na_user = decrypt(cookies.na_user);
+                
+                log('User cookie found:', na_user)
+                session = new Session({ user: na_user })
                 log('Old user, new session :: user:', session.user)
 
                 callback(null, true)
@@ -137,16 +141,19 @@ function analytics(opts_in){
         // set cookies
         function setCookies(callback){
             // Set cookies
-            res.cookie('na_session', session._id.toString(), {
+            var session_enc = encrypt(session._id.toString());
+            var user_enc = encrypt(session.user.toString());
+            
+            res.cookie('na_session', session_enc, {
                 maxAge:     1000 * 60 * 15              // 15 mins
               , httpOnly:   true
-            })
-            res.cookie('na_user', session.user, {
+            });
+            res.cookie('na_user', user_enc, {
                 maxAge:     1000 * 60 * 60 * 24 * 365   // 1 year
               , httpOnly:   true
-            })
+            });
 
-            callback(null)
+            return callback(null);
         }
             
         // return new request document
@@ -168,7 +175,8 @@ function analytics(opts_in){
 
             // add request index cookie
             var req_index = session.reqs.length;
-            res.cookie('na_req_index', req_index, {
+            var index_enc = encrypt(req_index);
+            res.cookie('na_req_index', index_enc, {
                 maxAge:     1000 * 60 * 15              // 15 mins
               , httpOnly:   true
             })
@@ -340,8 +348,8 @@ function socketInit(){
     })
     io.on('connection', function(socket) {
         var cookies = cookie.parse(socket.handshake.headers.cookie || '');
-        var session_id = cookies.na_session;
-        var req_index = cookies.na_req_index;
+        var session_id = decrypt(cookies.na_session);
+        var req_index = decrypt(cookies.na_req_index);
         
         var session, request;
         var session_start = Date.now();
@@ -430,6 +438,7 @@ function socketInit(){
     log('Websocket server established');
 }
 
+// toolbox
 var update = {
     session: function(session, params, callback){
         var keys = update._keys(params);
@@ -466,7 +475,7 @@ var update = {
         
         Session.update({_id: session._id, "reqs._id": request._id}, params, function(err, raw){
             if(err) log.error('request update error [', keys, ']', request._id, err);
-            else log.session(session, 'request updated [', keys, ']', raw);
+            else log.session(session, 'request updated [', keys, ']');
             
             if(callback) return callback(err);
         })
@@ -553,6 +562,14 @@ log.prefix = function(args, error){
              return 'GMT' + m;
         }
     }
+}
+
+function encrypt(text){
+    return CryptoJS.AES.encrypt(text, '78hokaport74216lazoo').toString();
+}
+function decrypt(code){
+    var bytes  = CryptoJS.AES.decrypt(code.toString(), '78hokaport74216lazoo');
+    return bytes.toString(CryptoJS.enc.Utf8);
 }
 
 function sessions(options, callback){
