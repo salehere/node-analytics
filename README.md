@@ -1,6 +1,6 @@
 #node-analytics
 
-node-analytics is an ExpressJS visitor analytic middleware.
+[node-analytics](https://www.npmjs.com/package/node-analytics) is an ExpressJS visitor analytic middleware.
 
 ## Installation
 
