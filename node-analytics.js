@@ -33,7 +33,8 @@ module.exports = analytics;
 module.exports.sessions = sessions;
 
 var opts = {
-    client_dir: 'public/js'
+    client_copy:true
+  , client_dir: 'public/js'
   , db_host:    'localhost'
   , db_port:    27017
   , db_name:    'node_analytics_db'
@@ -433,6 +434,8 @@ var init = {
         log('Websocket server established');
     },
     clientJS: function(){
+        if(!opts.client_copy) return false;
+        
         var client_file = 'node-analytics-client.js';
         var src = path.join(__dirname, client_file);        // module directory
         var dest = path.join(opts.client_dir, client_file); // client JS directory
