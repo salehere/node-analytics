@@ -35,7 +35,7 @@ app.use(analytics());   // beneath express.static
 
 #### Client
 
-The client script **node-analytics-client.js** must be included on the served webpage beneath the [socket.io](http://socket.io/) client script.
+The client script **node-analytics-client.js** must be included on the served webpage beneath the [socket.io](http://socket.io/) client script. Specify the client JS directory `client_dir` as an option and the file will be automatically copied, or disable this behaviour by `client_copy: false`.
 
 ```html
 <script type='text/javascript' src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
@@ -76,6 +76,7 @@ node-analytics may be adapted by the following options:
 
 Key | Description | Default
 --- | --- | ---
+`client_copy` | Copy n-a-client.js boolean | `true`
 `client_dir` | Client-side JS directory | `'public/js'`
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
@@ -107,7 +108,7 @@ Key | Description | Default
 `reach_class` | Reach-log class | *na_reach*
 `read_class` | Read-log class | *na_read*
 
-Example use (in **node-analytics-client.js**):
+Example use (editing **node-analytics-client.js**):
 ```javascript
 var na_obj = {
     ws_host:        'https://npmjs.com'
