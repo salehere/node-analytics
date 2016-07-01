@@ -33,7 +33,8 @@ module.exports = analytics;
 module.exports.sessions = sessions;
 
 var opts = {
-    db_host:    'localhost'
+    client_dir: 'public/js'
+  , db_host:    'localhost'
   , db_port:    27017
   , db_name:    'node_analytics_db'
   , ws_port:    8080
@@ -45,15 +46,20 @@ var opts = {
   , error_pre:  colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
 }
 
-console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
-console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory")
-
 function analytics(opts_in){
+    // Set options
     for(var k in opts_in) opts[k] = opts_in[k];
     
-    mongoDB();
-    geoDB();
-    socketInit();
+    // Welcome
+    console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
+    console.log(colours.green('node-analytics'), "active:", colours.red('node-analytics-client.js'),
+                "will write to client JS dir", colours.magenta(opts.client_dir));
+    
+    // Run initializing functions
+    init.mongoDB();
+    init.geoDB();
+    init.webSocket();
+    init.clientJS();
     
     // HTTP request:
     return function(req, res, next){
@@ -255,177 +261,193 @@ function analytics(opts_in){
     }
 }
 
-function mongoDB(){
-    // Connect to MongoDB
-    var db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name
-    db = mongoose.connect(db_url).connection;
-    db.on('error', function(err) {
-        log.error('MongoDB error: Data will not be saved :: err:', err)
-    });
-    db.once('open', function() {
-        log('MongoDB connection successful')
-    });
-    
-    // Schema
-    var Request_Schema = mongoose.Schema({
-        host: String
-      , url: { type: String, index: true }
-      , query: [{ field: String, value: String }]
-      , ref: { type: String, index: true }
-      , time: Number
-      , reaches: [String]
-      , pauses: [{
-            section: String
+var init = {
+    mongoDB: function(){
+        // Connect to MongoDB
+        var db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name
+        db = mongoose.connect(db_url).connection;
+        db.on('error', function(err) {
+            log.error('MongoDB error: Data will not be saved :: err:', err)
+        });
+        db.once('open', function() {
+            log('MongoDB connection successful')
+        });
+
+        // Schema
+        var Request_Schema = mongoose.Schema({
+            host: String
+          , url: { type: String, index: true }
+          , query: [{ field: String, value: String }]
+          , ref: { type: String, index: true }
           , time: Number
-        }]
-      , clicks: [String]
-    });
-    
-    var Session_Schema = mongoose.Schema({
-        user: { type: String, index: true }
-      , date: { type: Date, default: Date.now }
-      , ip: String
-      , is_bot: { type: Boolean, default: true }
-      , geo: {
-                city:    { type: String, index: true }
-              , state:   { type: String, index: true }
-              , country: { type: String, index: true }
-              , continent: { type: String, index: true }
-              , time_zone: { type: String, index: true }
-            }
-      , system: {
-                os: {
-                    name: String
-                  , version: String
+          , reaches: [String]
+          , pauses: [{
+                section: String
+              , time: Number
+            }]
+          , clicks: [String]
+        });
+
+        var Session_Schema = mongoose.Schema({
+            user: { type: String, index: true }
+          , date: { type: Date, default: Date.now }
+          , ip: String
+          , is_bot: { type: Boolean, default: true }
+          , geo: {
+                    city:    { type: String, index: true }
+                  , state:   { type: String, index: true }
+                  , country: { type: String, index: true }
+                  , continent: { type: String, index: true }
+                  , time_zone: { type: String, index: true }
                 }
-              , browser: {
-                    name: String
-                  , version: String
+          , system: {
+                    os: {
+                        name: String
+                      , version: String
+                    }
+                  , browser: {
+                        name: String
+                      , version: String
+                    }
                 }
+          , time: Number
+          , resolution: {
+                    width: Number
+                  , height: Number
+                }
+          , reqs: [Request_Schema]
+        });
+
+        Request = mongoose.model('Request', Request_Schema);
+        Session = mongoose.model('Session', Session_Schema);
+    },
+    geoDB: function(){
+        // Check for mmdb
+        if(opts.geo_ip){
+            fs.stat(opts.mmdb, function(err, stats){
+                if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb)
+
+                try { geo_lookup = maxmind.open(opts.mmdb) }
+                catch(e){ return log.error('GeoIP DB read error :: err:', e) }
+
+                log('GeoIP DB loaded successfully')
+            })
+        }
+    },
+    webSocket: function(){
+        io = s_io(opts.ws_port);
+        io.use(function(socket, next){
+            if(socket.handshake.headers.cookie){
+                var cookies = cookie.parse(socket.handshake.headers.cookie);
+                if(cookies && cookies.na_session) next();
             }
-      , time: Number
-      , resolution: {
-                width: Number
-              , height: Number
-            }
-      , reqs: [Request_Schema]
-    });
-    
-    Request = mongoose.model('Request', Request_Schema);
-    Session = mongoose.model('Session', Session_Schema);
-}
-
-function geoDB(){
-    // Check for mmdb
-    if(opts.geo_ip){
-        fs.stat(opts.mmdb, function(err, stats){
-            if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb)
-
-            try { geo_lookup = maxmind.open(opts.mmdb) }
-            catch(e){ return log.error('GeoIP DB read error :: err:', e) }
-
-            log('GeoIP DB loaded successfully')
+            else log.error('Socket authentication error; no session cookie')
         })
+        io.on('connection', function(socket) {
+            var cookies = cookie.parse(socket.handshake.headers.cookie || '');
+            var session_id = cookies.na_session;
+            var req_index = cookies.na_req_index;
+
+            var session, request;
+            var session_start = Date.now();
+            var blurred = 0;
+            var blurring = Date.now();
+
+            // Get session
+            if(session_id){
+                Session.findById(session_id, function(err, result){
+                    if(err) return log.error('Session find error :: id[socket]', session_id, err)
+                    if(!result) return log.error('Session not found :: id[socket]', session_id)
+
+                    // set regional session and request
+                    session = result;
+                    request = session.reqs[req_index];
+                    // could alternatively get request by session.reqs.id with req_id cookie
+
+                    // log and initiate socket sensitivity
+                    if(request){
+                        log.session(session, 'socket connected, request:', request._id)
+                        socketResponse();
+                    }
+                    else {
+                        log.error('socket connected, request not found');
+                        socketResponse(true);
+                    }
+                })
+            }
+
+            function socketResponse(if_req){
+                // session updates
+                if(session.is_bot){
+                    update.session(session, { is_bot: false });
+                }
+
+                if(!session.resolution){
+                    socket.on('resolution', function(params){
+                        update.session(session, { resolution: params });
+                    });
+                }
+
+                // request updates
+                socket.on('click', function(id){
+                    if(if_req) update.request(session, request, { $push: { clicks : id }})
+                    log.session(session, 'socket click in [', id, ']')
+                })
+                socket.on('reach', function(id){
+                    if(if_req) update.request(session, request, { $push: { reaches: id }})
+                    log.session(session, 'socket reach in [', id, ']')
+                })
+                socket.on('pause', function(params){
+                   if(if_req) update.request(session, request, { $push: { pauses: params }})
+                   log.session(session, 'socket pause in [', params, ']')
+                })
+
+                // session timer
+                socket.on('blur', function(){
+                    blurring = Date.now();
+                })
+                socket.on('focus', function(){
+                    blurred += Date.now() - blurring;
+                })
+
+                // Disconnection
+                socket.on('disconnect', function() {
+                    // request time, sans blurred time
+                    var t = (Date.now() - session_start - blurred) / 1000;
+
+                    // total session time; begin with this request
+                    var session_t = t;
+                    for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
+
+                    // update request & session
+                    if(if_req) request.time = t;
+                    if(if_req) update.request(session, request, { time: t });
+
+                    update.session(session, { session_time: session_t });
+
+                    log.session(session, 'socket disconnected');
+                })
+            }
+        })
+
+        log('Websocket server established');
+    },
+    clientJS: function(){
+        var client_file = 'node-analytics-client.js';
+        var src = path.join(__dirname, client_file);        // module directory
+        var dest = path.join(opts.client_dir, client_file); // client JS directory
+
+        var nac = colours.red('node-analytics-client.js');
+
+        fs.readFile(src, function(err, data){
+            if(err) return log.error(nac, 'read error; check module contents for file');
+            fs.writeFile(dest, data, function(err){
+                if(err) return log.error(nac, 'write error; copy file to client JS directory')
+
+                log(nac, 'copied to client dir', colours.magenta(opts.client_dir));
+            });
+        });
     }
-}
-
-function socketInit(){
-    io = s_io(opts.ws_port);
-    io.use(function(socket, next){
-        if(socket.handshake.headers.cookie){
-            var cookies = cookie.parse(socket.handshake.headers.cookie);
-            if(cookies && cookies.na_session) next();
-        }
-        else log.error('Socket authentication error; no session cookie')
-    })
-    io.on('connection', function(socket) {
-        var cookies = cookie.parse(socket.handshake.headers.cookie || '');
-        var session_id = cookies.na_session;
-        var req_index = cookies.na_req_index;
-        
-        var session, request;
-        var session_start = Date.now();
-        var blurred = 0;
-        var blurring = Date.now();
-        
-        // Get session
-        if(session_id){
-            Session.findById(session_id, function(err, result){
-                if(err) return log.error('Session find error :: id[socket]', session_id, err)
-                if(!result) return log.error('Session not found :: id[socket]', session_id)
-
-                // set regional session and request
-                session = result;
-                request = session.reqs[req_index];
-                // could alternatively get request by session.reqs.id with req_id cookie
-                
-                // log and initiate socket sensitivity
-                if(request){
-                    log.session(session, 'socket connected, request:', request._id)
-                    socketResponse();
-                }
-                else {
-                    log.error('socket connected, request not found');
-                    socketResponse(true);
-                }
-            })
-        }
-        
-        function socketResponse(if_req){
-            // session updates
-            if(session.is_bot){
-                update.session(session, { is_bot: false });
-            }
-            
-            if(!session.resolution){
-                socket.on('resolution', function(params){
-                    update.session(session, { resolution: params });
-                });
-            }
-            
-            // request updates
-            socket.on('click', function(id){
-                if(if_req) update.request(session, request, { $push: { clicks : id }})
-                log.session(session, 'socket click in [', id, ']')
-            })
-            socket.on('reach', function(id){
-                if(if_req) update.request(session, request, { $push: { reaches: id }})
-                log.session(session, 'socket reach in [', id, ']')
-            })
-            socket.on('pause', function(params){
-               if(if_req) update.request(session, request, { $push: { pauses: params }})
-               log.session(session, 'socket pause in [', params, ']')
-            })
-            
-            // session timer
-            socket.on('blur', function(){
-                blurring = Date.now();
-            })
-            socket.on('focus', function(){
-                blurred += Date.now() - blurring;
-            })
-
-            // Disconnection
-            socket.on('disconnect', function() {
-                // request time, sans blurred time
-                var t = (Date.now() - session_start - blurred) / 1000;
-                
-                // total session time; begin with this request
-                var session_t = t;
-                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
-                
-                // update request & session
-                if(if_req) request.time = t;
-                if(if_req) update.request(session, request, { time: t });
-                
-                update.session(session, { session_time: session_t });
-                
-                log.session(session, 'socket disconnected');
-            })
-        }
-    })
-    
-    log('Websocket server established');
 }
 
 var update = {

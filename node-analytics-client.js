@@ -1,7 +1,5 @@
 // node-analytics server
 
-// link class has onclick
-
 var na_obj = {
     ws_host:        location.hostname
   , ws_port:        8080
