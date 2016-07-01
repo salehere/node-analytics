@@ -5,7 +5,7 @@
 ## Installation
 
 ```sh
-$ npm install --save node-analytics
+$ npm install node-analytics
 ```
 
 ## Prenuptials
