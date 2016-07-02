@@ -15,6 +15,8 @@ Complete node-analytics functionality relies upon the following:
 - **MongoDB**: a `mongod` instance must be running on the server for data storage
 - a **MaxMind** GeoIP database for location data; the free GeoLite2 City database is [available here](http://dev.maxmind.com/geoip/geoip2/geolite2/)
 - **WebSocket** for client behaviour data; ensure that your WebSocket port of choice is clear for action on your server *(defaults to 8080)*
+ 
+Though it will function without one, some, or all of the above.
 
 ## Basic usage
 
