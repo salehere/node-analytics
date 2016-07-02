@@ -54,7 +54,7 @@ function analytics(opts_in){
     // Welcome
     console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
     console.log(colours.green('node-analytics'), "active:", colours.red('node-analytics-client.js'),
-                "will write to client JS dir", colours.magenta(opts.client_dir));
+                "will be copied to client JS dir", colours.magenta(opts.client_dir));
     
     // Run initializing functions
     init.mongoDB();
@@ -366,18 +366,14 @@ var init = {
                     // could alternatively get request by session.reqs.id with req_id cookie
 
                     // log and initiate socket sensitivity
-                    if(request){
-                        log.session(session, 'socket connected, request:', request._id)
-                        socketResponse();
-                    }
-                    else {
-                        log.error('socket connected, request not found');
-                        socketResponse(true);
-                    }
-                })
+                    if(request) log.session(session, 'socket connected, request:', request._id)
+                    else log.error('socket connected, request not found');
+                    
+                    socketResponse();
+                });
             }
 
-            function socketResponse(if_req){
+            function socketResponse(){
                 // session updates
                 if(session.is_bot){
                     update.session(session, { is_bot: false });
@@ -391,15 +387,15 @@ var init = {
 
                 // request updates
                 socket.on('click', function(id){
-                    if(if_req) update.request(session, request, { $push: { clicks : id }})
+                    if(request) update.request(session, request, { $push: { clicks : id }})
                     log.session(session, 'socket click in [', id, ']')
                 })
                 socket.on('reach', function(id){
-                    if(if_req) update.request(session, request, { $push: { reaches: id }})
+                    if(request) update.request(session, request, { $push: { reaches: id }})
                     log.session(session, 'socket reach in [', id, ']')
                 })
                 socket.on('pause', function(params){
-                   if(if_req) update.request(session, request, { $push: { pauses: params }})
+                   if(request) update.request(session, request, { $push: { pauses: params }})
                    log.session(session, 'socket pause in [', params, ']')
                 })
 
@@ -421,8 +417,8 @@ var init = {
                     for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
 
                     // update request & session
-                    if(if_req) request.time = t;
-                    if(if_req) update.request(session, request, { time: t });
+                    if(request) request.time = t;
+                    if(request) update.request(session, request, { time: t });
 
                     update.session(session, { session_time: session_t });
 
