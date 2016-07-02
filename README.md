@@ -76,7 +76,7 @@ node-analytics may be adapted by the following options:
 
 Key | Description | Default
 --- | --- | ---
-`client_copy` | Copy n-a-client.js boolean | `true`
+`client_copy` | Copy **node-analytics-client.js** to client-side dir? | `true`
 `client_dir` | Client-side JS directory | `'public/js'`
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
