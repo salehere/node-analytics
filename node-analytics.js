@@ -485,7 +485,7 @@ var update = {
         
         Session.update({_id: session._id, "reqs._id": request._id}, params, function(err, raw){
             if(err) log.error('request update error [', keys, ']', request._id, err);
-            else log.session(session, 'request updated [', keys, ']', raw);
+            else log.session(session, 'request updated [', keys, ']');
             
             if(callback) return callback(err);
         })
