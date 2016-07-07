@@ -6,6 +6,7 @@ var na_obj = {
   , click_class:    'na_click'
   , reach_class:    'na_reach'
   , read_class:     'na_read'
+  , https:          true
 };
 var na_socket;
 var na_pause = {};
@@ -17,8 +18,11 @@ var na_pause = {};
     na_obj.pauses = document.getElementsByClassName(na_obj.read_class);
     na_obj.pause_data = [];
     
+    var protocol = 'https';
+    if(!https) protocol = 'http';
+    
     // init: connect to websocket
-    na_socket = io.connect('http://' + na_obj.ws_host + ':' + na_obj.ws_port);
+    na_socket = io.connect(protocol + '://' + na_obj.ws_host + ':' + na_obj.ws_port);
     
     // Calibration
     addEvent(window, 'resize', function(){
