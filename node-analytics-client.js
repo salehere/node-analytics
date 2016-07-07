@@ -6,7 +6,7 @@ var na_obj = {
   , click_class:    'na_click'
   , reach_class:    'na_reach'
   , read_class:     'na_read'
-  , https:          true
+  , force_protocol: false                   // replace with 'http' or 'https'
 };
 var na_socket;
 var na_pause = {};
@@ -18,11 +18,8 @@ var na_pause = {};
     na_obj.pauses = document.getElementsByClassName(na_obj.read_class);
     na_obj.pause_data = [];
     
-    var protocol = 'https';
-    if(!https) protocol = 'http';
-    
     // init: connect to websocket
-    na_socket = io.connect(protocol + '://' + na_obj.ws_host + ':' + na_obj.ws_port);
+    na_socket = io.connect(protocol() + '://' + na_obj.ws_host + ':' + na_obj.ws_port);
     
     // Calibration
     addEvent(window, 'resize', function(){
@@ -113,7 +110,14 @@ var na_pause = {};
             obj.attachEvent('on' + type, obj[type + fn]);
         }
         else obj.addEventListener(type, fn);
-  }
+    }
+    function protocol(){
+        var p = 'http';
+        if(document.URL.indexOf('https://') > -1) p = 'https';
+        if(na_obj.force_protocol === 'http' || na_obj.force_protocol === 'https' ) p = na_obj.force_protocol;
+        
+        return p;
+    }
 })();
 
 function na_timer_start(){
