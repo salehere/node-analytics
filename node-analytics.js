@@ -38,8 +38,8 @@ var opts = {
   , db_host:    'localhost'
   , db_port:    27017
   , db_name:    'node_analytics_db'
-  , ws_server:  null
   , ws_port:    8080
+  , ws_server:  null
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
@@ -338,8 +338,8 @@ var init = {
     },
     webSocket: function(){
         // Connect by server or by port
-        if(opts.server) io = s_io.listen(opts.ws_server);
-        else io = s_io(opts.ws_port)
+        if(opts.ws_port) io = s_io(opts.ws_port);
+        else io = s_io.listen(opts.ws_server);
         
         io.use(function(socket, next){
             if(socket.handshake.headers.cookie){

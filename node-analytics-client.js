@@ -7,11 +7,11 @@
 // ==============
 var na_obj = {
     ws_host:        location.hostname
-  , ws_port:        null                    // set to null if passing server object on server
+  , ws_port:        8080                    // set to null if passing server object on server
   , click_class:    'na_click'
   , reach_class:    'na_reach'
   , read_class:     'na_read'
-  , force_protocol: false                   // 'http' or 'https'
+  , force_protocol: null                    // 'http' or 'https'
 };
 
 // ==============
@@ -33,7 +33,7 @@ var na_pause = {};
     function socketConnect(){
         var p = 'http';
         if(document.URL.indexOf('https://') > -1) p = 'https'
-        if(na_obj.force_protocol) p = na_obj.force_protocol;
+        if(na_obj.force_protocol) p = na_obj.force_protocol.toLowerCase();
         
         var url = p + '://' + na_obj.ws_host
         if(na_obj.ws_port) url += ':' + na_obj.ws_port;
