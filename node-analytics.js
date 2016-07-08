@@ -54,8 +54,12 @@ function analytics(opts_in){
     
     // Welcome
     console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
-    console.log(colours.green('node-analytics'), "active:", colours.red('node-analytics-client.js'),
+    if(opts.client_copy)
+        console.log(colours.green('node-analytics'), "active:", colours.red('node-analytics-client.js'),
                 "will be copied to client JS dir", colours.magenta(opts.client_dir));
+    else 
+        console.log(colours.green('node-analytics'), "active:", colours.red('node-analytics-client.js'),
+                "will", colours.red('NOT'), "be copied to client JS dir", colours.magenta(opts.client_dir));
     
     // Run initializing functions
     init.mongoDB();
