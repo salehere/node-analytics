@@ -83,8 +83,8 @@ Key | Description | Default
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
 `db_name` | MongoDB database name | `'node_analytics_db'`
-`ws_port` | WebSocket port; disable with `null` | `8080`
-`ws_server` | Express server object; disabled regardless if `ws_port` is set | `null`
+`ws_port` | WebSocket port; disabled if `ws_server` is set | `8080`
+`ws_server` | Express server object | `null`
 `geo_ip` | Use GeoIP boolean  | `true`
 `mmdb` | MaxMind DB path | `'GeoLite2-City.mmdb'`
 `log` | Output log boolean | `true`
@@ -108,7 +108,7 @@ app.use(analytics({
 Key | Description | Default
 --- | --- | ---
 `ws_host` | Websocket host | `location.hostname`
-`ws_port` | Websocket port, if necessary | `8080`
+`ws_port` | Websocket port; must disable if using `ws_server` in **app.js** | `8080`
 `click_class` | Click-log class | `'na_click'`
 `reach_class` | Reach-log class | `'na_reach'`
 `read_class` | Read-log class | `'na_read'`
