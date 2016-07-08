@@ -83,7 +83,7 @@ Key | Description | Default
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
 `db_name` | MongoDB database name | `'node_analytics_db'`
-`ws_port` | WebSocket port | `8080`
+`ws_port` | WebSocket port; disable with `null` | `8080`
 `ws_server` | Express server object; disabled regardless if `ws_port` is set | `null`
 `geo_ip` | Use GeoIP boolean  | `true`
 `mmdb` | MaxMind DB path | `'GeoLite2-City.mmdb'`
