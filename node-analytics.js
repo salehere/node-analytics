@@ -7,8 +7,8 @@
 // defaults
 var fs = require('fs')
 ,   path = require('path')
-,   http = require('http')
 ,   crypto = require('crypto')
+,   https = require('https')
 
 // installed
 var get_ip = require('ipware')().get_ip
@@ -38,6 +38,7 @@ var opts = {
   , db_host:    'localhost'
   , db_port:    27017
   , db_name:    'node_analytics_db'
+  , ws_server:  null
   , ws_port:    8080
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
@@ -336,7 +337,10 @@ var init = {
         }
     },
     webSocket: function(){
-        io = s_io(opts.ws_port);
+        // Connect by server or by port
+        if(opts.server) io = s_io.listen(opts.ws_server);
+        else io = s_io(opts.ws_port)
+        
         io.use(function(socket, next){
             if(socket.handshake.headers.cookie){
                 var cookies = cookie.parse(socket.handshake.headers.cookie);

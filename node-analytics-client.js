@@ -1,13 +1,23 @@
-// node-analytics server
+// node-analytics: client
+// https://github.com/andrao/node-analytics
+// MIT License
 
+// ==============
+// CLIENT OPTIONS
+// ==============
 var na_obj = {
     ws_host:        location.hostname
-  , ws_port:        8080
+  , ws_port:        null                    // set to null if passing server object on server
   , click_class:    'na_click'
   , reach_class:    'na_reach'
   , read_class:     'na_read'
-  , force_protocol: false                   // replace with 'http' or 'https'
+  , force_protocol: false                   // 'http' or 'https'
 };
+
+// ==============
+// APPLICATION
+// ==============
+
 var na_socket;
 var na_pause = {};
 
@@ -19,7 +29,17 @@ var na_pause = {};
     na_obj.pause_data = [];
     
     // init: connect to websocket
-    na_socket = io.connect(protocol() + '://' + na_obj.ws_host + ':' + na_obj.ws_port);
+    na_socket = socketConnect();
+    function socketConnect(){
+        var p = 'http';
+        if(document.URL.indexOf('https://') > -1) p = 'https'
+        if(na_obj.force_protocol) p = na_obj.force_protocol;
+        
+        var url = p + '://' + na_obj.ws_host
+        if(na_obj.ws_port) url += ':' + na_obj.ws_port;
+        
+        return io.connect(url);
+    }
     
     // Calibration
     addEvent(window, 'resize', function(){
@@ -110,13 +130,6 @@ var na_pause = {};
             obj.attachEvent('on' + type, obj[type + fn]);
         }
         else obj.addEventListener(type, fn);
-    }
-    function protocol(){
-        var p = 'http';
-        if(document.URL.indexOf('https://') > -1) p = 'https';
-        if(na_obj.force_protocol === 'http' || na_obj.force_protocol === 'https' ) p = na_obj.force_protocol;
-        
-        return p;
     }
 })();
 
