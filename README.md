@@ -8,13 +8,13 @@
 $ npm install node-analytics
 ```
 
-## Prenuptials
+## Prerequisites
 
 Complete node-analytics functionality relies upon the following:
 
 - **MongoDB**: a `mongod` instance must be running on the server for data storage
 - a **MaxMind** GeoIP database for location data; the free GeoLite2 City database is [available here](http://dev.maxmind.com/geoip/geoip2/geolite2/)
-- **WebSocket** for client behaviour data; ensure that your WebSocket port of choice is clear for action on your server *(defaults to 8080)*
+- an open **WebSocket** for client behaviour data collection; ensure port is open (default is 8080) or pass in server object
  
 Though it will function without one, some, or all of the above.
 
@@ -84,6 +84,7 @@ Key | Description | Default
 `db_port` | MongoDB port | `27017`
 `db_name` | MongoDB database name | `'node_analytics_db'`
 `ws_port` | WebSocket port | `8080`
+`ws_server` | Express server object; disabled regardless if `ws_port` is set | `null`
 `geo_ip` | Use GeoIP boolean  | `true`
 `mmdb` | MaxMind DB path | `'GeoLite2-City.mmdb'`
 `log` | Output log boolean | `true`
@@ -91,13 +92,15 @@ Key | Description | Default
 `error_log` | Error log boolean | `true`
 `error_pre` | Error log prefix | `'node-analytics ERROR ||'`
 
-Example use:
+Example use with WebSocket server instead of port (see necessary client edit below):
 
 ```javascript
-  app.use(analytics({
-      db_host:  "https://npmjs.com"
-    , ws_port:  8079
-  }));
+var server = require('http').createServer(app);
+server.listen(80);
+
+app.use(analytics({
+  ws_server:  server
+}));
 ```
 
 #### Client
@@ -105,18 +108,18 @@ Example use:
 Key | Description | Default
 --- | --- | ---
 `ws_host` | Websocket host | `location.hostname`
-`ws_port` | Websocket port | 8080
-`click_class` | Click-log class | *na_click*
-`reach_class` | Reach-log class | *na_reach*
-`read_class` | Read-log class | *na_read*
+`ws_port` | Websocket port, if necessary | `8080`
+`click_class` | Click-log class | `'na_click'`
+`reach_class` | Reach-log class | `'na_reach'`
+`read_class` | Read-log class | `'na_read'`
+`force_protocol` | Force `'http'` or `'https'` | null
 
-Example use (editing **node-analytics-client.js**):
+Example use including server support (editing **node-analytics-client.js**):
 ```javascript
 var na_obj = {
-    ws_host:        'https://npmjs.com'
-  , ws_port:        8079
-  , click_class:    'na_click'    // default value
+    ws_port:        null          // must be disabled if server object is being used
+  , click_class:    'clicked_me'
   , reach_class:    'reached_me'
-  , read_class:     'na_read'     // default value
+  , read_class:     'read_me'
 };
 ```
