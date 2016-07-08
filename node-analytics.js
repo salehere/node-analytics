@@ -33,19 +33,19 @@ module.exports = analytics;
 module.exports.sessions = sessions;
 
 var opts = {
-    client_copy:true
-  , client_dir: 'public/js'
-  , db_host:    'localhost'
-  , db_port:    27017
-  , db_name:    'node_analytics_db'
-  , ws_port:    8080
-  , ws_server:  null
-  , geo_ip:     true
-  , mmdb:       'GeoLite2-City.mmdb'
-  , log:        true
-  , log_pre:    colours.green('node-analytics') + ' ||'
-  , error_log:  true
-  , error_pre:  colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
+    client_copy:    true
+  , client_dir:     'public/js'
+  , db_host:        'localhost'
+  , db_port:        27017
+  , db_name:        'node_analytics_db'
+  , ws_port:        8080
+  , ws_server:      null
+  , geo_ip:         true
+  , mmdb:           'GeoLite2-City.mmdb'
+  , log:            true
+  , log_pre:        colours.green('node-analytics') + ' ||'
+  , error_log:      true
+  , error_pre:      colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
 }
 
 function analytics(opts_in){
@@ -342,8 +342,9 @@ var init = {
     },
     webSocket: function(){
         // Connect by server or by port
-        if(opts.ws_port) io = s_io(opts.ws_port);
-        else io = s_io.listen(opts.ws_server);
+        if(opts.ws_server) io = s_io.listen(opts.ws_server);
+        else if(opts.ws_port) io = s_io(opts.ws_port);
+        else return log.error('Cannot establish WebSocket connection: no server or port set')
         
         io.use(function(socket, next){
             if(socket.handshake.headers.cookie){
