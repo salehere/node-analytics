@@ -1,7 +1,7 @@
 {
   "name": "node-analytics",
   "description": "NodeJS web analytics",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "main": "./node-analytics.js",
   "author": {
     "name": "Andrew Lake",
@@ -31,8 +31,8 @@
     "socket.io": "^1.4.8",
     "useragent": "^2.1.9"
   },
-    "scripts": {
-      "patch-publish": "npm version patch && npm publish && git push",
-      "readme-update": "git add README.md && git commit -m 'README update' && npm version patch && npm publish && git push"
-    }
+  "scripts": {
+    "patch-publish": "npm version patch && npm publish && git push",
+    "readme-update": "git add README.md && git commit -m 'README update' && npm version patch && npm publish && git push"
+  }
 }
