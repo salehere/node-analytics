@@ -1,7 +1,7 @@
 {
   "name": "node-analytics",
   "description": "NodeJS web analytics",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "main": "./node-analytics.js",
   "author": {
     "name": "Andrew Lake",
