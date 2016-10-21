@@ -60,6 +60,11 @@ function analytics(opts_in){
     // HTTP request:
     return function(req, res, next){
 
+        // Skip cases
+        if(req.url.indexOf('/socket.io/?EIO=') == 0)
+            return next();
+
+        // =================================
 
         // populate var session; returns boolean on whether newly formed
         function getSession(callback){
@@ -128,51 +133,23 @@ function analytics(opts_in){
             callback(null, session)
         }
 
-        // return new request document
-        function newRequest(session, callback){
-            var request = new Request();
-            request.host = req.hostname;
-            request.url = req.url;
-
-            // populate request query
-            for(var field in req.query){
-                if(field === 'ref') request.ref = req.query[field];
-                else {
-                    request.query.push({
-                        field: field
-                        , value: req.query[field]
-                    })
-                }
-            }
-
-            // add request index cookie
-            var req_index = session.reqs.length;
-            res.cookie('na_req_index', req_index, {
-                maxAge:     1000 * 60 * 15              // 15 mins
-                , httpOnly:   true
-            });
-
-            // return request object: will be added at sessionSave();
-            callback(null, session, request)
-        }
-
         // append session data
-        function sessionData(session, request, callback){
+        function sessionData(session, callback){
 
             if(session.continued)
-                return callback(null, session, request);
+                return callback(null, session);
 
             async.parallel([
-                    getIp
-                    , getLocation
-                    , getSystem
+                    getIp,
+                    getLocation,
+                    getSystem
                 ],
                 function(err){
-                    if(err)
-                        callback(err);
-                    callback(null, session, request);
+                    return err ? callback(err) : callback(null, session);
                 }
             );
+
+            // ======================
 
             // .ip
             function getIp(callback){
@@ -213,10 +190,43 @@ function analytics(opts_in){
             }
         }
 
+        // return new request document
+        function newRequest(session, callback){
+            var request = {
+                host: req.hostname,
+                url: req.url,
+                method: req.method
+            };
+
+            // populate request query
+            for(var field in req.query){
+                if(field === 'ref')
+                    request.ref = req.query[field];
+                else {
+                    if(!request.query)
+                        request.query = [];
+
+                    request.query.push({
+                        field: field
+                        , value: req.query[field]
+                    })
+                }
+            }
+
+            // add request index cookie
+            var req_index = session.reqs.length;
+            res.cookie('na_req_index', req_index, {
+                maxAge:     1000 * 60 * 15,             // 15 mins
+                httpOnly:   true
+            });
+
+            // return request object: will be added at sessionSave();
+            callback(null, session, request)
+        }
+
         // save / update session to DB & proceed to socket
         function sessionSave(session, request, callback){
             if(!session.continued){
-
                 session.reqs.push(request);
                 session.save(function(err){
                     if(err)
@@ -238,6 +248,7 @@ function analytics(opts_in){
             }
         }
 
+        // =================================
 
         async.waterfall([
                 getSession
@@ -276,6 +287,7 @@ function mongoDB(){
       , url: { type: String, index: true }
       , query: [{ field: String, value: String }]
       , ref: { type: String, index: true }
+      , method: { type: String }
       , time: Number
       , reaches: [String]
       , pauses: [{
