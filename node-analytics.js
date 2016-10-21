@@ -102,6 +102,8 @@ function analytics(opts_in){
             else
                 newSession();
 
+            // ====================
+
             function userSession(){
                 log('Old user, new session :: user:', cookies.na_user);
                 callback(null, new Session({ user: cookies.na_user }))
@@ -136,8 +138,10 @@ function analytics(opts_in){
         // append session data
         function sessionData(session, callback){
 
-            if(session.continued)
-                return callback(null, session);
+            if(session.continued){
+                callback(null, session);
+                return true;
+            }
 
             async.parallel([
                     getIp,
@@ -152,15 +156,15 @@ function analytics(opts_in){
             // ======================
 
             // .ip
-            function getIp(callback){
+            function getIp(cb){
                 session.ip = get_ip(req).clientIp;
-                callback(null)
+                cb(null)
             }
 
             // .geo :: .city, .state, .country
-            function getLocation(callback){
+            function getLocation(cb){
                 if(!geo_lookup)
-                    return callback(null);
+                    return cb(null);
 
                 var loc = geo_lookup.get(session.ip);
 
@@ -173,11 +177,11 @@ function analytics(opts_in){
                 }
                 catch(e){ log.error('geoIP error:', e); }
 
-                callback(null)
+                cb(null)
             }
 
             // .system :: .os{, .broswer{ .name, .version
-            function getSystem(callback){
+            function getSystem(cb){
                 var agent = useragent.parse(req.headers['user-agent']);
                 var os = agent.os;
                 session.system.browser.name = agent.family;
@@ -186,20 +190,20 @@ function analytics(opts_in){
                 session.system.os.name = os.family;
                 session.system.os.version = os.major + '.' + os.minor + '.' + os.patch;
 
-                callback(null)
+                cb(null)
             }
         }
 
         // return new request document
         function newRequest(session, callback){
-            var request = {
+            let request = {
                 host: req.hostname,
                 url: req.url,
                 method: req.method
             };
 
             // populate request query
-            for(var field in req.query){
+            for(let field in req.query){
                 if(field === 'ref')
                     request.ref = req.query[field];
                 else {
@@ -214,7 +218,7 @@ function analytics(opts_in){
             }
 
             // add request index cookie
-            var req_index = session.reqs.length;
+            let req_index = session.reqs.length;
             res.cookie('na_req_index', req_index, {
                 maxAge:     1000 * 60 * 15,             // 15 mins
                 httpOnly:   true
@@ -230,7 +234,7 @@ function analytics(opts_in){
                 session.reqs.push(request);
                 session.save(function(err){
                     if(err)
-                        return callback('session save error');
+                        return callback('db session save error');
 
                     log.session(session, 'session active [ new ]');
                     return callback(null, session);
@@ -240,7 +244,7 @@ function analytics(opts_in){
                 // an old session: all that needs be updated is request
                 update.session(session, {$push: {reqs: request}}, function(err){
                     if(err)
-                        return callback('new request not added to session', session._id);
+                        return callback('db session update error');
 
                     log.session(session, 'session active [ updated ]');
                     callback(null, session);
