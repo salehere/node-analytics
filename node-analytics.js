@@ -4,6 +4,8 @@
  * MIT Licensed
  */
 
+'use strict';
+
 // defaults
 var fs = require('fs')
 ,   path = require('path')
@@ -21,10 +23,11 @@ var get_ip = require('ipware')().get_ip
 ,   colours = require('colors/safe');
 
 // globals
-var db
-,   geo_lookup
-,   Session
-,   io;
+var db,
+    geo_lookup,
+    Session,
+    Request,
+    io;
 
 // -------------------------------------------------------------
 
@@ -42,10 +45,10 @@ var opts = {
   , log_pre:    colours.green('node-analytics') + ' ||'
   , error_log:  true
   , error_pre:  colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
-}
+};
 
-console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket")
-console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory")
+console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket");
+console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory");
 
 function analytics(opts_in){
     for(var k in opts_in) opts[k] = opts_in[k];
@@ -56,36 +59,8 @@ function analytics(opts_in){
     
     // HTTP request:
     return function(req, res, next){
-        // Otherwise, log page load
-        var session;
 
-        async.series([
-                getSession
-              , setCookies
-              , newRequest
-            ],
-            function(err, results){
-                if(err) log.error(err)
 
-                var new_session = results[0];   // [getSession] boolean
-                var request = results[2];       // [newRequest] request document
-
-                async.series([
-                    function(callback){
-                        sessionData(new_session, callback)
-                    }
-                  , function(callback){
-                        sessionSave(new_session, request, callback)
-                  }
-                ],
-                function(err){
-                    if(err) log.error(err);
-                    req.node_analytics = session;
-                    next();
-                });
-            }
-        );
-        
         // populate var session; returns boolean on whether newly formed
         function getSession(callback){
             var cookies = cookie.parse(req.headers.cookie || '');
@@ -97,72 +72,75 @@ function analytics(opts_in){
             if(cookies.na_session){
                 log('Session cookie found:', cookies.na_session);
 
-                Session.findById(cookies.na_session, function(err, result){
+                Session.findById(cookies.na_session, function(err, session){
                     if(err)
                         log.error(err);
 
-                    if(!result){
-                        log.error('Session not found :: id[cookie]:', cookies.na_session)
+                    if(!session){
+                        log.error('Session not found :: id[cookie]:', cookies.na_session);
 
                         // send to check if user instead
-                        if(cookies.na_user) userSession();
-                        else newSession();
+                        if(cookies.na_user)
+                            userSession();
+                        else
+                            newSession();
                     }
                     else {
                         log('Session continues :: id:', cookies.na_session);
-                        session = result;
-
-                        callback(null, false);
+                        session.continued = true;
+                        callback(null, session);
                     }
                 })
             }
-            else if(cookies.na_user) userSession();
-            else newSession();
+            else if(cookies.na_user)
+                userSession();
+            else
+                newSession();
 
             function userSession(){
-                log('User cookie found:', cookies.na_user)
-                session = new Session({ user: cookies.na_user })
-                log('Old user, new session :: user:', session.user)
-
-                callback(null, true)
+                log('Old user, new session :: user:', cookies.na_user);
+                callback(null, new Session({ user: cookies.na_user }))
             }
             function newSession(){
-                session = new Session();   
-                session.user = session._id.toString();
-                log('New user, new session :: user:', session.user)
 
-                callback(null, true)
+                // Initiate session to get _id
+                let session = new Session();
+                session.user = session._id.toString();
+
+                log('New user, new session :: user:', session.user);
+
+                callback(null, session)
             }
         }
 
         // set cookies
-        function setCookies(callback){
+        function setCookies(session, callback){
             // Set cookies
             res.cookie('na_session', session._id.toString(), {
                 maxAge:     1000 * 60 * 15              // 15 mins
-              , httpOnly:   true
-            })
+                , httpOnly:   true
+            });
             res.cookie('na_user', session.user, {
                 maxAge:     1000 * 60 * 60 * 24 * 365   // 1 year
-              , httpOnly:   true
-            })
+                , httpOnly:   true
+            });
 
-            callback(null)
+            callback(null, session)
         }
-            
+
         // return new request document
-        function newRequest(callback){
+        function newRequest(session, callback){
             var request = new Request();
             request.host = req.hostname;
             request.url = req.url;
 
             // populate request query
             for(var field in req.query){
-                if(field === 'ref') request.ref = req.query[field]
+                if(field === 'ref') request.ref = req.query[field];
                 else {
                     request.query.push({
                         field: field
-                      , value: req.query[field]
+                        , value: req.query[field]
                     })
                 }
             }
@@ -171,40 +149,43 @@ function analytics(opts_in){
             var req_index = session.reqs.length;
             res.cookie('na_req_index', req_index, {
                 maxAge:     1000 * 60 * 15              // 15 mins
-              , httpOnly:   true
-            })
+                , httpOnly:   true
+            });
 
             // return request object: will be added at sessionSave();
-            callback(null, request)
+            callback(null, session, request)
         }
-            
+
         // append session data
-        function sessionData(new_session, callback){
-            // no need to run if picking up from old session
-            if(!new_session) return callback(null);
-            
+        function sessionData(session, request, callback){
+
+            if(session.continued)
+                return callback(null, session, request);
+
             async.parallel([
                     getIp
-                  , getLocation
-                  , getSystem
+                    , getLocation
+                    , getSystem
                 ],
                 function(err){
-                    if(err) callback(err);
-                    callback(null);
+                    if(err)
+                        callback(err);
+                    callback(null, session, request);
                 }
             );
-            
+
             // .ip
             function getIp(callback){
-                session.ip = get_ip(req).clientIp
+                session.ip = get_ip(req).clientIp;
                 callback(null)
             }
 
             // .geo :: .city, .state, .country
             function getLocation(callback){
-                if(!geo_lookup) return callback(null);
+                if(!geo_lookup)
+                    return callback(null);
 
-                var loc = geo_lookup.get(session.ip)
+                var loc = geo_lookup.get(session.ip);
 
                 try{
                     if(loc.city) session.geo.city = loc.city.names.en;
@@ -223,36 +204,58 @@ function analytics(opts_in){
                 var agent = useragent.parse(req.headers['user-agent']);
                 var os = agent.os;
                 session.system.browser.name = agent.family;
-                session.system.browser.version = agent.major + '.' + agent.minor + '.' + agent.patch
+                session.system.browser.version = agent.major + '.' + agent.minor + '.' + agent.patch;
 
                 session.system.os.name = os.family;
-                session.system.os.version = os.major + '.' + os.minor + '.' + os.patch
+                session.system.os.version = os.major + '.' + os.minor + '.' + os.patch;
 
                 callback(null)
             }
         }
-        
+
         // save / update session to DB & proceed to socket
-        function sessionSave(new_session, request, callback){
-            if(new_session){
+        function sessionSave(session, request, callback){
+            if(!session.continued){
+
                 session.reqs.push(request);
                 session.save(function(err){
-                    if(err) return callback('session save error')
-                    
-                    log.session(session, 'session active [ new ]')
-                    return callback(null);
+                    if(err)
+                        return callback('session save error');
+
+                    log.session(session, 'session active [ new ]');
+                    return callback(null, session);
                 });
             }
             else {
                 // an old session: all that needs be updated is request
                 update.session(session, {$push: {reqs: request}}, function(err){
-                    if(err) return callback('new request not added to session', session._id)
+                    if(err)
+                        return callback('new request not added to session', session._id);
 
-                    log.session(session, 'session active [ updated ]')
-                    callback(null);
+                    log.session(session, 'session active [ updated ]');
+                    callback(null, session);
                 });
             }
         }
+
+
+        async.waterfall([
+                getSession
+              , setCookies
+              , newRequest
+              , sessionData
+              , sessionSave
+            ],
+            function(err, session){
+                if(err){
+                    log.error(err);
+                    next();
+                    return false;
+                }
+                req.node_analytics = session;
+                next();
+            }
+        );
     }
 }
 
@@ -320,9 +323,11 @@ function geoDB(){
     // Check for mmdb
     if(opts.geo_ip){
         fs.stat(opts.mmdb, function(err, stats){
-            if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb)
+            if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb);
 
-            try { geo_lookup = maxmind.open(opts.mmdb) }
+            try {
+                geo_lookup = maxmind.open(opts.mmdb);
+            }
             catch(e){ return log.error('GeoIP DB read error :: err:', e) }
 
             log('GeoIP DB loaded successfully')
@@ -338,7 +343,7 @@ function socketInit(){
             if(cookies && cookies.na_session) next();
         }
         else log.error('Socket authentication error; no session cookie')
-    })
+    });
     io.on('connection', function(socket) {
         var cookies = cookie.parse(socket.handshake.headers.cookie || '');
         var session_id = cookies.na_session;
@@ -352,8 +357,8 @@ function socketInit(){
         // Get session
         if(session_id){
             Session.findById(session_id, function(err, result){
-                if(err) return log.error('Session find error :: id[socket]', session_id, err)
-                if(!result) return log.error('Session not found :: id[socket]', session_id)
+                if(err) return log.error('Session find error :: id[socket]', session_id, err);
+                if(!result) return log.error('Session not found :: id[socket]', session_id);
 
                 // set regional session and request
                 session = result;
@@ -362,7 +367,7 @@ function socketInit(){
                 
                 // log and initiate socket sensitivity
                 if(request){
-                    log.session(session, 'socket connected, request:', request._id)
+                    log.session(session, 'socket connected, request:', request._id);
                     socketResponse();
                 }
                 else {
@@ -386,25 +391,25 @@ function socketInit(){
             
             // request updates
             socket.on('click', function(id){
-                if(if_req) update.request(session, request, { $push: { clicks : id }})
+                if(if_req) update.request(session, request, { $push: { clicks : id }});
                 log.session(session, 'socket click in [', id, ']')
-            })
+            });
             socket.on('reach', function(id){
-                if(if_req) update.request(session, request, { $push: { reaches: id }})
+                if(if_req) update.request(session, request, { $push: { reaches: id }});
                 log.session(session, 'socket reach in [', id, ']')
-            })
+            });
             socket.on('pause', function(params){
-               if(if_req) update.request(session, request, { $push: { pauses: params }})
+               if(if_req) update.request(session, request, { $push: { pauses: params }});
                log.session(session, 'socket pause in [', params, ']')
-            })
+            });
             
             // session timer
             socket.on('blur', function(){
                 blurring = Date.now();
-            })
+            });
             socket.on('focus', function(){
                 blurred += Date.now() - blurring;
-            })
+            });
 
             // Disconnection
             socket.on('disconnect', function() {
@@ -424,7 +429,7 @@ function socketInit(){
                 log.session(session, 'socket disconnected');
             })
         }
-    })
+    });
     
     log('Websocket server established');
 }
@@ -451,12 +456,12 @@ var update = {
                 if(!params.$push) params.$push = {};
                 
                 for(var l in params_in.$push){
-                    var key = update._reqkey(l)
+                    var key = update._reqkey(l);
                     params.$push[key] = params_in.$push[l];
                 }
             }
             else {
-                var key = update._reqkey(k)
+                var key = update._reqkey(k);
                 params[key] = params_in[k];
             }
         }
@@ -481,51 +486,51 @@ var update = {
     _reqkey: function(key){
         return 'reqs.$.' + key;
     }
-}
+};
 
 var log = function(){
     if(opts.log){
         var args = Array.prototype.slice.call(arguments);
-        args = log.prefix(args)
+        args = log.prefix(args);
         
         console.log.apply(console, args);
     }
-}
+};
 log.error = function(){
     if(opts.error_log){
         var args = Array.prototype.slice.call(arguments);
-        args = log.prefix(args, true)
+        args = log.prefix(args, true);
         
         console.error.apply(console, args);
     }
-}
+};
 log.session = function(session){
     if(opts.log){
         // build ident
         var user = session.user;
-        var ident = user.substr(user.length - 6);
+        var ident = [user.substr(user.length - 6)];
         
         if(session.geo){
-            if(session.geo.city){
-                ident += ' ' + session.geo.city
-                if(session.geo.state) ident += ', ' + session.geo.state
-            }
-            else if(session.geo.state){
-            ident += ' ' + session.geo.state
-            if(session.geo.country) ident += ', ' + session.geo.country
+
+            var ks = ['city', 'state', 'country'];
+            ks.forEach((k) => {
+                if(session.geo[k])
+                    ident.push(k);
+            });
         }
-        }
+
+        ident = ident.join(", ");
         
         // substitute ident for session in args
         var args = Array.prototype.slice.call(arguments);
         args[0] = colours.blue(ident) + ' ||';
         
         // add prefix to start
-        args = log.prefix(args)
+        args = log.prefix(args);
         
         console.log.apply(console, args);
     }
-}
+};
 log.prefix = function(args, error){
     // [0] => prefix, [1] => date
     args.unshift(logDate() + ' ||');
@@ -543,7 +548,7 @@ log.prefix = function(args, error){
                 fZ(d.getHours()) + ':' + 
                 fZ(d.getMinutes()) + ':' + 
                 fZ(d.getSeconds()) + ' ' +
-                tz(d)
+                tz(d);
 
         function fZ(v){ return ('0' + v).slice(-2); }
         function tz(d){
@@ -552,7 +557,7 @@ log.prefix = function(args, error){
              return 'GMT' + m;
         }
     }
-}
+};
 
 function sessions(options, callback){
     if(!callback){
@@ -565,7 +570,7 @@ function sessions(options, callback){
             .sort({date: 'desc'})
             .limit(n)
             .exec(function(err, results){
-                if(err) log.error('Sessions query error:', err)
+                if(err) log.error('Sessions query error:', err);
                 callback(err, results)
             });
 }
