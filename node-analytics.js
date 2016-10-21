@@ -39,6 +39,7 @@ var opts = {
   , db_port:    27017
   , db_name:    'node_analytics_db'
   , ws_port:    8080
+  , ws_server:  false
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
@@ -51,7 +52,8 @@ console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, &
 console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory");
 
 function analytics(opts_in){
-    for(var k in opts_in) opts[k] = opts_in[k];
+    for(var k in opts_in)
+        opts[k] = opts_in[k];
     
     mongoDB();
     geoDB();
@@ -257,8 +259,8 @@ function analytics(opts_in){
         async.waterfall([
                 getSession
               , setCookies
-              , newRequest
               , sessionData
+              , newRequest
               , sessionSave
             ],
             function(err, session){
@@ -352,7 +354,9 @@ function geoDB(){
 }
 
 function socketInit(){
-    io = s_io(opts.ws_port);
+    if(opts.ws_server)
+        io = opts.ws_server ? s_io.listen(opts.ws_server) : s_io(opts.ws_port);
+
     io.use(function(socket, next){
         if(socket.handshake.headers.cookie){
             var cookies = cookie.parse(socket.handshake.headers.cookie);
@@ -531,7 +535,7 @@ log.session = function(session){
             var ks = ['city', 'state', 'country'];
             ks.forEach((k) => {
                 if(session.geo[k])
-                    ident.push(k);
+                    ident.push(session.geo[k]);
             });
         }
 

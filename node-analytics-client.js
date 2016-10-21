@@ -30,13 +30,17 @@ var na_pause = {};
     
     // init: connect to websocket
     na_socket = socketConnect();
+
     function socketConnect(){
         var p = 'http';
-        if(document.URL.indexOf('https://') > -1) p = 'https'
-        if(na_obj.force_protocol) p = na_obj.force_protocol.toLowerCase();
+        if(document.URL.indexOf('https://') > -1)
+            p = 'https';
+        if(na_obj.force_protocol)
+            p = na_obj.force_protocol.toLowerCase();
         
-        var url = p + '://' + na_obj.ws_host
-        if(na_obj.ws_port) url += ':' + na_obj.ws_port;
+        var url = p + '://' + na_obj.ws_host;
+        if(na_obj.ws_port)
+            url += ':' + na_obj.ws_port;
         
         return io.connect(url);
     }
