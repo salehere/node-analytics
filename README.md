@@ -117,7 +117,7 @@ Key | Description | Default
 Example use including server support (editing **node-analytics-client.js**):
 ```javascript
 var na_obj = {
-    ws_port:        `null`          // must be disabled if server object is being used
+    ws_port:        null          // must be disabled if server object is being used
   , click_class:    'clicked_me'
   , reach_class:    'reached_me'
   , read_class:     'read_me'
