@@ -57,13 +57,13 @@ Event | Logged when element | Element class | Note
 Events will be associated with an element's `id` property, or will otherwise be assigned an index.
 
 ```html
-<section id="contact" class="na-read">      //id: contact
+<section id="contact" class="na_read">      //id: contact
   
-  <a href="mailto:me" class="na-click">     //id: reach_point_0
+  <a href="mailto:me" class="na_click">     //id: reach_point_0
     Contact us
   </a>
   
-  <span="fine_print" class="na-reach">      //id: read_section_0
+  <span="fine_print" class="na_reach">      //id: read_section_0
     in exchange for your marbles
   </span>
   
@@ -112,12 +112,12 @@ Key | Description | Default
 `click_class` | Click-log class | `'na_click'`
 `reach_class` | Reach-log class | `'na_reach'`
 `read_class` | Read-log class | `'na_read'`
-`force_protocol` | Force `'http'` or `'https'` | null
+`force_protocol` | Force `'http'` or `'https'` socket connection | `null`
 
 Example use including server support (editing **node-analytics-client.js**):
 ```javascript
 var na_obj = {
-    ws_port:        `null`          // must be disabled if server object is being used
+    ws_port:        null          // must be disabled if server object is being used
   , click_class:    'clicked_me'
   , reach_class:    'reached_me'
   , read_class:     'read_me'
