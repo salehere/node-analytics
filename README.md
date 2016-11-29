@@ -57,13 +57,13 @@ Event | Logged when element | Element class | Note
 Events will be associated with an element's `id` property, or will otherwise be assigned an index.
 
 ```html
-<section id="contact" class="na-read">      //id: contact
+<section id="contact" class="na_read">      //id: contact
   
-  <a href="mailto:me" class="na-click">     //id: reach_point_0
+  <a href="mailto:me" class="na_click">     //id: reach_point_0
     Contact us
   </a>
   
-  <span="fine_print" class="na-reach">      //id: read_section_0
+  <span="fine_print" class="na_reach">      //id: read_section_0
     in exchange for your marbles
   </span>
   
