@@ -20,7 +20,8 @@ var get_ip = require('ipware')().get_ip
 ,   cookie = require('cookie')
 ,   async = require('async')
 ,   s_io = require('socket.io')
-,   colours = require('colors/safe');
+,   colours = require('colors/safe'),
+    log = require('andrao-logger')('NODE ANALYTICS');
 
 // globals
 var db,
@@ -43,22 +44,211 @@ var opts = {
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
-  , log_pre:    colours.green('node-analytics') + ' ||'
   , error_log:  true
-  , error_pre:  colours.green('node-analytics') + ' ' + colours.red('ERROR') + ' ::'
 };
 
-console.log(colours.green('node-analytics'), "active: wait for MongoDB, GeoIP, & WebSocket");
-console.log(colours.green('node-analytics'), "don't forget to copy", colours.red('node-analytics-client.js'), "to public directory");
+log("active: wait for MongoDB, GeoIP, & WebSocket");
+log("don't forget to copy", colours.red('node-analytics-client.js'), "to public directory");
+
+function mongoDB(cb){
+    // Connect to MongoDB
+    var db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
+    db = mongoose.connect(db_url).connection;
+    db.on('error', function(err) {
+        log.error('MongoDB error: Data will not be saved :: err:', err)
+    });
+    db.once('open', function() {
+        log('MongoDB connection successful');
+        cb(null);
+    });
+    
+    // Schema
+    var Request_Schema = mongoose.Schema({
+        host: String
+      , url: { type: String, index: true }
+      , query: [{ field: String, value: String }]
+      , ref: { type: String, index: true }
+      , method: { type: String }
+      , time: Number
+      , reaches: [String]
+      , pauses: [{
+            section: String
+          , time: Number
+        }]
+      , clicks: [String]
+    });
+    
+    var Session_Schema = mongoose.Schema({
+        user: { type: String, index: true }
+      , date: { type: Date, default: Date.now }
+      , ip: String
+      , is_bot: { type: Boolean, default: true }
+      , geo: {
+                city:    { type: String, index: true }
+              , state:   { type: String, index: true }
+              , country: { type: String, index: true }
+              , continent: { type: String, index: true }
+              , time_zone: { type: String, index: true }
+            }
+      , system: {
+                os: {
+                    name: String
+                  , version: String
+                }
+              , browser: {
+                    name: String
+                  , version: String
+                }
+            }
+      , time: Number
+      , resolution: {
+                width: Number
+              , height: Number
+            }
+      , reqs: [Request_Schema]
+    });
+    
+    Request = mongoose.model('Request', Request_Schema);
+    Session = mongoose.model('Session', Session_Schema);
+}
+
+function geoDB(cb){
+    // Check for mmdb
+    if(opts.geo_ip){
+        maxmind.open(opts.mmdb, (err, mmdb) => {
+            if(err){
+                log.error('GeoIP DB open error', opts.mmdb, err);
+                return cb(true)
+            }
+
+            geo_lookup = mmdb;
+            log('GeoIP DB loaded successfully');
+            cb(null);
+        });
+    }
+    else {
+        log('GeoIP disabled');
+        cb(null);
+    }
+}
+
+function socketInit(cb){
+    io = opts.ws_server ? s_io.listen(opts.ws_server) : s_io(opts.ws_port);
+    io.use(function(socket, next){
+        if(socket.handshake.headers.cookie){
+            var cookies = cookie.parse(socket.handshake.headers.cookie);
+            if(cookies && cookies.na_session) next();
+        }
+        else log.error('Socket authentication error; no session cookie')
+    });
+    io.on('connection', function(socket) {
+        var cookies = cookie.parse(socket.handshake.headers.cookie || '');
+        var session_id = cookies.na_session;
+        var req_index = cookies.na_req_index;
+        
+        var session, request;
+        var session_start = Date.now();
+        var blurred = 0;
+        var blurring = Date.now();
+        
+        // Get session
+        if(session_id){
+            Session.findById(session_id, function(err, result){
+                if(err) return log.error('Session find error :: id[socket]', session_id, err);
+                if(!result) return log.error('Session not found :: id[socket]', session_id);
+
+                // set regional session and request
+                session = result;
+                request = session.reqs[req_index];
+                // could alternatively get request by session.reqs.id with req_id cookie
+                
+                // log and initiate socket sensitivity
+                if(request){
+                    log.session(session, 'socket connected, request:', request._id);
+                    socketResponse();
+                }
+                else {
+                    log.error('socket connected, request not found');
+                    socketResponse(true);
+                }
+            })
+        }
+        
+        function socketResponse(if_req){
+            // session updates
+            if(session.is_bot){
+                update.session(session, { is_bot: false });
+            }
+            
+            if(!session.resolution){
+                socket.on('resolution', function(params){
+                    update.session(session, { resolution: params });
+                });
+            }
+            
+            // request updates
+            socket.on('click', function(id){
+                if(if_req) update.request(session, request, { $push: { clicks : id }});
+                log.session(session, 'socket click in [', id, ']')
+            });
+            socket.on('reach', function(id){
+                if(if_req) update.request(session, request, { $push: { reaches: id }});
+                log.session(session, 'socket reach in [', id, ']')
+            });
+            socket.on('pause', function(params){
+               if(if_req) update.request(session, request, { $push: { pauses: params }});
+               log.session(session, 'socket pause in [', params, ']')
+            });
+            
+            // session timer
+            socket.on('blur', function(){
+                blurring = Date.now();
+            });
+            socket.on('focus', function(){
+                blurred += Date.now() - blurring;
+            });
+
+            // Disconnection
+            socket.on('disconnect', function() {
+                // request time, sans blurred time
+                var t = (Date.now() - session_start - blurred) / 1000;
+                
+                // total session time; begin with this request
+                var session_t = t;
+                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
+                
+                // update request & session
+                request.time = t;
+                if(if_req) update.request(session, request, { time: t });
+                
+                update.session(session, { session_time: session_t });
+                
+                log.session(session, 'socket disconnected');
+            })
+        }
+    });
+    
+    log('Websocket server established');
+    cb(null);
+}
+
+// ===============
 
 function analytics(opts_in){
     for(var k in opts_in)
         opts[k] = opts_in[k];
-    
-    mongoDB();
-    geoDB();
-    socketInit();
-    
+
+    async.parallel([
+        mongoDB,
+        socketInit,
+        geoDB,
+    ], (err) => {
+        if(err)
+            return log.error('start-up interrupted');
+
+        log('READY');
+    });
+
     // HTTP request:
     return function(req, res, next){
 
@@ -170,14 +360,18 @@ function analytics(opts_in){
 
                 var loc = geo_lookup.get(session.ip);
 
-                try{
-                    if(loc.city) session.geo.city = loc.city.names.en;
-                    if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
-                    if(loc.country) session.geo.country = loc.country.iso_code;
-                    if(loc.continent) session.geo.continent = loc.continent.code;
-                    if(loc.location) session.geo.time_zone = loc.location.time_zone;
+                if(loc){
+                    try {
+                        if(loc.city) session.geo.city = loc.city.names.en;
+                        if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
+                        if(loc.country) session.geo.country = loc.country.iso_code;
+                        if(loc.continent) session.geo.continent = loc.continent.code;
+                        if(loc.location) session.geo.time_zone = loc.location.time_zone;
+                    }
+                    catch(e){
+                        log.error('geoIP error:', e);
+                    }
                 }
-                catch(e){ log.error('geoIP error:', e); }
 
                 cb(null)
             }
@@ -258,10 +452,10 @@ function analytics(opts_in){
 
         async.waterfall([
                 getSession
-              , setCookies
-              , sessionData
-              , newRequest
-              , sessionSave
+                , setCookies
+                , sessionData
+                , newRequest
+                , sessionSave
             ],
             function(err, session){
                 if(err){
@@ -276,183 +470,7 @@ function analytics(opts_in){
     }
 }
 
-function mongoDB(){
-    // Connect to MongoDB
-    var db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
-    db = mongoose.connect(db_url).connection;
-    db.on('error', function(err) {
-        log.error('MongoDB error: Data will not be saved :: err:', err)
-    });
-    db.once('open', function() {
-        log('MongoDB connection successful')
-    });
-    
-    // Schema
-    var Request_Schema = mongoose.Schema({
-        host: String
-      , url: { type: String, index: true }
-      , query: [{ field: String, value: String }]
-      , ref: { type: String, index: true }
-      , method: { type: String }
-      , time: Number
-      , reaches: [String]
-      , pauses: [{
-            section: String
-          , time: Number
-        }]
-      , clicks: [String]
-    });
-    
-    var Session_Schema = mongoose.Schema({
-        user: { type: String, index: true }
-      , date: { type: Date, default: Date.now }
-      , ip: String
-      , is_bot: { type: Boolean, default: true }
-      , geo: {
-                city:    { type: String, index: true }
-              , state:   { type: String, index: true }
-              , country: { type: String, index: true }
-              , continent: { type: String, index: true }
-              , time_zone: { type: String, index: true }
-            }
-      , system: {
-                os: {
-                    name: String
-                  , version: String
-                }
-              , browser: {
-                    name: String
-                  , version: String
-                }
-            }
-      , time: Number
-      , resolution: {
-                width: Number
-              , height: Number
-            }
-      , reqs: [Request_Schema]
-    });
-    
-    Request = mongoose.model('Request', Request_Schema);
-    Session = mongoose.model('Session', Session_Schema);
-}
-
-function geoDB(){
-    // Check for mmdb
-    if(opts.geo_ip){
-        fs.stat(opts.mmdb, function(err, stats){
-            if(err) return log.error(err, 'GeoIP DB file not found :: Path:', opts.mmdb);
-
-            try {
-                geo_lookup = maxmind.open(opts.mmdb);
-            }
-            catch(e){ return log.error('GeoIP DB read error :: err:', e) }
-
-            log('GeoIP DB loaded successfully')
-        })
-    }
-}
-
-function socketInit(){
-    if(opts.ws_server)
-        io = opts.ws_server ? s_io.listen(opts.ws_server) : s_io(opts.ws_port);
-
-    io.use(function(socket, next){
-        if(socket.handshake.headers.cookie){
-            var cookies = cookie.parse(socket.handshake.headers.cookie);
-            if(cookies && cookies.na_session) next();
-        }
-        else log.error('Socket authentication error; no session cookie')
-    });
-    io.on('connection', function(socket) {
-        var cookies = cookie.parse(socket.handshake.headers.cookie || '');
-        var session_id = cookies.na_session;
-        var req_index = cookies.na_req_index;
-        
-        var session, request;
-        var session_start = Date.now();
-        var blurred = 0;
-        var blurring = Date.now();
-        
-        // Get session
-        if(session_id){
-            Session.findById(session_id, function(err, result){
-                if(err) return log.error('Session find error :: id[socket]', session_id, err);
-                if(!result) return log.error('Session not found :: id[socket]', session_id);
-
-                // set regional session and request
-                session = result;
-                request = session.reqs[req_index];
-                // could alternatively get request by session.reqs.id with req_id cookie
-                
-                // log and initiate socket sensitivity
-                if(request){
-                    log.session(session, 'socket connected, request:', request._id);
-                    socketResponse();
-                }
-                else {
-                    log.error('socket connected, request not found');
-                    socketResponse(true);
-                }
-            })
-        }
-        
-        function socketResponse(if_req){
-            // session updates
-            if(session.is_bot){
-                update.session(session, { is_bot: false });
-            }
-            
-            if(!session.resolution){
-                socket.on('resolution', function(params){
-                    update.session(session, { resolution: params });
-                });
-            }
-            
-            // request updates
-            socket.on('click', function(id){
-                if(if_req) update.request(session, request, { $push: { clicks : id }});
-                log.session(session, 'socket click in [', id, ']')
-            });
-            socket.on('reach', function(id){
-                if(if_req) update.request(session, request, { $push: { reaches: id }});
-                log.session(session, 'socket reach in [', id, ']')
-            });
-            socket.on('pause', function(params){
-               if(if_req) update.request(session, request, { $push: { pauses: params }});
-               log.session(session, 'socket pause in [', params, ']')
-            });
-            
-            // session timer
-            socket.on('blur', function(){
-                blurring = Date.now();
-            });
-            socket.on('focus', function(){
-                blurred += Date.now() - blurring;
-            });
-
-            // Disconnection
-            socket.on('disconnect', function() {
-                // request time, sans blurred time
-                var t = (Date.now() - session_start - blurred) / 1000;
-                
-                // total session time; begin with this request
-                var session_t = t;
-                for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
-                
-                // update request & session
-                request.time = t;
-                if(if_req) update.request(session, request, { time: t });
-                
-                update.session(session, { session_time: session_t });
-                
-                log.session(session, 'socket disconnected');
-            })
-        }
-    });
-    
-    log('Websocket server established');
-}
+// ===============
 
 var update = {
     session: function(session, params, callback){
@@ -505,77 +523,6 @@ var update = {
     },
     _reqkey: function(key){
         return 'reqs.$.' + key;
-    }
-};
-
-var log = function(){
-    if(opts.log){
-        var args = Array.prototype.slice.call(arguments);
-        args = log.prefix(args);
-        
-        console.log.apply(console, args);
-    }
-};
-log.error = function(){
-    if(opts.error_log){
-        var args = Array.prototype.slice.call(arguments);
-        args = log.prefix(args, true);
-        
-        console.error.apply(console, args);
-    }
-};
-log.session = function(session){
-    if(opts.log){
-        // build ident
-        var user = session.user;
-        var ident = [user.substr(user.length - 6)];
-        
-        if(session.geo){
-
-            var ks = ['city', 'state', 'country'];
-            ks.forEach((k) => {
-                if(session.geo[k])
-                    ident.push(session.geo[k]);
-            });
-        }
-
-        ident = ident.join(", ");
-        
-        // substitute ident for session in args
-        var args = Array.prototype.slice.call(arguments);
-        args[0] = colours.blue(ident) + ' ||';
-        
-        // add prefix to start
-        args = log.prefix(args);
-        
-        console.log.apply(console, args);
-    }
-};
-log.prefix = function(args, error){
-    // [0] => prefix, [1] => date
-    args.unshift(logDate() + ' ||');
-    
-    if(error) args.unshift(opts.error_pre);
-    else args.unshift(opts.log_pre);
-    
-    return args;
-    
-    function logDate(){
-        var d = new Date();
-        return  d.getFullYear() + '/' +
-                fZ(d.getMonth() + 1) + '/' +
-                fZ(d.getDate()) + ' ' +
-                fZ(d.getHours()) + ':' + 
-                fZ(d.getMinutes()) + ':' + 
-                fZ(d.getSeconds()) + ' ' +
-                tz(d);
-
-        function fZ(v){ return ('0' + v).slice(-2); }
-        function tz(d){
-             var m = d.getTimezoneOffset() / -60;
-             if(m >= 0) return 'GMT+' + m;
-             return 'GMT' + m;
-        }
     }
 };
 
