@@ -112,7 +112,7 @@ Key | Description | Default
 `click_class` | Click-log class | `'na_click'`
 `reach_class` | Reach-log class | `'na_reach'`
 `read_class` | Read-log class | `'na_read'`
-`force_protocol` | Force `'http'` or `'https'` | null
+`force_protocol` | Force `'http'` or `'https'` | `null`
 
 Example use including server support (editing **node-analytics-client.js**):
 ```javascript
