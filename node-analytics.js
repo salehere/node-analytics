@@ -238,11 +238,11 @@ function analytics(opts_in){
     for(var k in opts_in)
         opts[k] = opts_in[k];
 
-    async.parallel([
+    async.parallelLimit([
         mongoDB,
         socketInit,
         geoDB,
-    ], (err) => {
+    ], 2, (err) => {
         if(err)
             return log.error('start-up interrupted');
 
@@ -335,11 +335,11 @@ function analytics(opts_in){
                 return true;
             }
 
-            async.parallel([
+            async.parallelLimit([
                     getIp,
                     getLocation,
                     getSystem
-                ],
+                ], 2,
                 function(err){
                     return err ? callback(err) : callback(null, session);
                 }
