@@ -29,7 +29,8 @@ var na_pause = {};
     na_obj.pause_data = [];
     
     // init: connect to websocket
-    na_socket = socketConnect();
+    if(io && io.connect)
+        na_socket = socketConnect();
 
     function socketConnect(){
         var p = 'http';
@@ -41,7 +42,7 @@ var na_pause = {};
         var url = p + '://' + na_obj.ws_host;
         if(na_obj.ws_port)
             url += ':' + na_obj.ws_port;
-        
+
         return io.connect(url);
     }
     

@@ -28,7 +28,7 @@ var db,
     geo_lookup,
     Session,
     Request,
-    io;
+    io = false;
 
 // -------------------------------------------------------------
 
@@ -61,7 +61,7 @@ function mongoDB(cb){
         log('MongoDB connection successful');
         cb(null);
     });
-    
+
     // Schema
     var Request_Schema = mongoose.Schema({
         host: String
@@ -77,7 +77,7 @@ function mongoDB(cb){
         }]
       , clicks: [String]
     });
-    
+
     var Session_Schema = mongoose.Schema({
         user: { type: String, index: true }
       , date: { type: Date, default: Date.now }
@@ -107,7 +107,7 @@ function mongoDB(cb){
             }
       , reqs: [Request_Schema]
     });
-    
+
     Request = mongoose.model('Request', Request_Schema);
     Session = mongoose.model('Session', Session_Schema);
 }
@@ -145,12 +145,12 @@ function socketInit(cb){
         var cookies = cookie.parse(socket.handshake.headers.cookie || '');
         var session_id = cookies.na_session;
         var req_index = cookies.na_req_index;
-        
+
         var session, request;
         var session_start = Date.now();
         var blurred = 0;
         var blurring = Date.now();
-        
+
         // Get session
         if(session_id){
             Session.findById(session_id, function(err, result){
@@ -161,7 +161,7 @@ function socketInit(cb){
                 session = result;
                 request = session.reqs[req_index];
                 // could alternatively get request by session.reqs.id with req_id cookie
-                
+
                 // log and initiate socket sensitivity
                 if(request){
                     log.session(session, 'socket connected, request:', request._id);
@@ -173,19 +173,19 @@ function socketInit(cb){
                 }
             })
         }
-        
+
         function socketResponse(if_req){
             // session updates
             if(session.is_bot){
                 update.session(session, { is_bot: false });
             }
-            
+
             if(!session.resolution){
                 socket.on('resolution', function(params){
                     update.session(session, { resolution: params });
                 });
             }
-            
+
             // request updates
             socket.on('click', function(id){
                 if(if_req) update.request(session, request, { $push: { clicks : id }});
@@ -199,7 +199,7 @@ function socketInit(cb){
                if(if_req) update.request(session, request, { $push: { pauses: params }});
                log.session(session, 'socket pause in [', params, ']')
             });
-            
+
             // session timer
             socket.on('blur', function(){
                 blurring = Date.now();
@@ -212,22 +212,22 @@ function socketInit(cb){
             socket.on('disconnect', function() {
                 // request time, sans blurred time
                 var t = (Date.now() - session_start - blurred) / 1000;
-                
+
                 // total session time; begin with this request
                 var session_t = t;
                 for(var i = 0; i < session.reqs.length; i++) session_t += session.reqs[i].time;
-                
+
                 // update request & session
                 request.time = t;
                 if(if_req) update.request(session, request, { time: t });
-                
+
                 update.session(session, { session_time: session_t });
-                
+
                 log.session(session, 'socket disconnected');
             })
         }
     });
-    
+
     log('Websocket server established');
     cb(null);
 }
