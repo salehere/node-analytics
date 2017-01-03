@@ -203,7 +203,7 @@ function socketConnection(socket){
             socket.if_req = if_req;
 
         if(socket.session.is_bot)
-            update.session(socket.session, {is_bot: false});
+            update.session(socket.session, { $set: { is_bot: false}});
 
         if(!socket.session.resolution)
             socket.on('resolution', _socket.resolution.bind(socket));
@@ -251,7 +251,7 @@ let _socket = {
     },
 
     resolution: function(params){
-        update.session(this.session, { resolution: params });
+        update.session(this.session, { $set: { resolution: params }});
     },
 
     disconnect: function(){
@@ -268,7 +268,7 @@ let _socket = {
         if(this.if_req)
             update.request(this, { time: t });
 
-        update.session(this.session, { session_time: session_t });
+        update.session(this.session, { $set: { session_time: session_t }});
 
         log.session(this.session, 'socket disconnected');
     }
@@ -352,6 +352,7 @@ function getSession(req, res, callback){
                 session.continued = true;
                 callback(null, this.req, this.res, session);
             }
+
         }.bind({
             cookies: cookies,
             req: req,
@@ -522,7 +523,7 @@ function sessionSave(session, request, callback){
 }
 
 function sessionFlash(session, callback){
-    session.flash = Flash;
+    session.flash = Flash.bind(session);
 
     // Expire and clear flash data
     for(let k in session.flash_data){
@@ -532,15 +533,15 @@ function sessionFlash(session, callback){
             delete session.flash_data[k];
     }
 
-    session.save((err) => {
+    update.session(session, { $set: { flash_data: session.flash_data }}, (err) => {
         if(err)
-            log.error('sessionFlash save error', err);
+            log.error('sessionFlash update error', err);
 
         callback(null, session);
     });
 }
 
-function Flash(field, value){
+function Flash(field, value, cb){
 
     // Return saved field value
     if(typeof value === 'undefined'){
@@ -563,6 +564,8 @@ function Flash(field, value){
         this.save((err) => {
             if(err)
                 log.error('flash data save error', err);
+
+            cb(err);
         })
     }
 }
@@ -573,11 +576,14 @@ let update = {
     session: function(session, params, callback){
         var keys = update._keys(params);
         
-        Session.findByIdAndUpdate(session._id, params, function(err, raw){
-            if(err) log.error('session update error [', keys, ']', session._id, err);
-            else log.session(session, 'session updated [', keys, ']');
+        Session.findByIdAndUpdate(session._id, params, function(err){
+            if(err)
+                log.error('session update error [', keys, ']', session._id, err);
+            else
+                log.session(session, 'session updated [', keys, ']');
             
-            if(callback) return callback(err);
+            if(callback)
+                return callback(err);
         })
     },
     request: function(socket, params_in, callback){
