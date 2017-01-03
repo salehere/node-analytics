@@ -72,6 +72,8 @@ let Session_Schema = mongoose.Schema({
         , height: Number
     }
     , reqs: [Request_Schema]
+    , state: String
+    , flash_data: mongoose.Schema.Types.Mixed
 });
 
 let Request = mongoose.model('Request', Request_Schema);
@@ -303,17 +305,17 @@ function analytics(opts_in){
             setCookies,
             sessionData,
             newRequest,
-            sessionSave
+            sessionSave,
+            sessionFlash
         ], function(err, session){
-                if(err){
-                    log.error(err);
-                    next();
-                    return false;
-                }
-                req.node_analytics = session;
+            if(err){
+                log.error(err);
                 next();
+                return false;
             }
-        );
+            req.node_analytics = session;
+            next();
+        });
     }
 }
 
@@ -516,6 +518,52 @@ function sessionSave(session, request, callback){
             log.session(session, 'session active [ updated ]');
             callback(null, session);
         });
+    }
+}
+
+function sessionFlash(session, callback){
+    session.flash = Flash;
+
+    // Expire and clear flash data
+    for(let k in session.flash_data){
+        if(!session.flash_data[k].expired)
+            session.flash_data[k].expired = true;
+        else
+            delete session.flash_data[k];
+    }
+
+    session.save((err) => {
+        if(err)
+            log.error('sessionFlash save error', err);
+
+        callback(null, session);
+    });
+}
+
+function Flash(field, value){
+
+    // Return saved field value
+    if(typeof value === 'undefined'){
+
+        if(!this.flash_data || !this.flash_data[field])
+            return null;
+
+        return this.flash_data[field].val;
+    }
+
+    // Save new field value for next session
+    else {
+        if(!this.flash_data)
+            this.flash_data = {};
+
+        this.flash_data[field] = {
+            val: value,
+            expired: false
+        };
+        this.save((err) => {
+            if(err)
+                log.error('flash data save error', err);
+        })
     }
 }
 
