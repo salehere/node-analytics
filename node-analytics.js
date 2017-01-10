@@ -288,7 +288,7 @@ function analytics(opts_in){
         if(err)
             return log.error('start-up interrupted');
 
-        log('NODE ANALYTICS READY');
+        log(colours.green('NODE ANALYTICS READY'));
     });
 
     // HTTP request:
@@ -330,7 +330,8 @@ function getSession(req, res, callback){
 
     // Establish session: new/old session? new/old user?
     if(cookies.na_session){
-        log('Session cookie found:', cookies.na_session);
+        if(opts.log)
+            log('Session cookie found:', cookies.na_session);
 
         Session.findById(cookies.na_session, function(err, session){
             if(err){
@@ -348,7 +349,8 @@ function getSession(req, res, callback){
                     newSession();
             }
             else {
-                log('Session continues :: id:', this.cookies.na_session);
+                if(opts.log)
+                    log('Session continues :: id:', this.cookies.na_session);
                 session.continued = true;
                 callback(null, this.req, this.res, session);
             }
@@ -367,7 +369,8 @@ function getSession(req, res, callback){
     // ====================
 
     function userSession(){
-        log('Old user, new session :: user:', cookies.na_user);
+        if(opts.log)
+            log('Old user, new session :: user:', cookies.na_user);
         callback(null, req, res, new Session({ user: cookies.na_user }))
     }
     function newSession(){
@@ -376,7 +379,8 @@ function getSession(req, res, callback){
         let session = new Session();
         session.user = session._id.toString();
 
-        log('New user, new session :: user:', session.user);
+        if(opts.log)
+            log('New user, new session :: user:', session.user);
 
         callback(null, req, res, session)
     }
@@ -527,10 +531,10 @@ function sessionFlash(session, callback){
 
     // Expire and clear flash data
     for(let k in session.flash_data){
-        if(!session.flash_data[k].expired)
-            session.flash_data[k].expired = true;
-        else
+        if(!session.flash_data[k].endurance || !(session.flash_data[k].endurance - 1))
             delete session.flash_data[k];
+        else
+            session.flash_data[k].endurance--;
     }
 
     update.session(session, { $set: { flash_data: session.flash_data }}, (err) => {
@@ -541,7 +545,7 @@ function sessionFlash(session, callback){
     });
 }
 
-function Flash(field, value, cb){
+function Flash(field, value, endurance, cb){
 
     // Return saved field value
     if(typeof value === 'undefined'){
@@ -554,18 +558,29 @@ function Flash(field, value, cb){
 
     // Save new field value for next session
     else {
+
+        // Endurance represents number of page loads that this variable will last for
+        //  (Helpful in redirect situations)
+        if(typeof endurance === 'function'){
+            cb = endurance;
+            endurance = 1;
+        }
+        else if(!endurance)
+            endurance = 1;
+
         if(!this.flash_data)
             this.flash_data = {};
 
         this.flash_data[field] = {
             val: value,
-            expired: false
+            endurance: endurance
         };
         this.save((err) => {
             if(err)
                 log.error('flash data save error', err);
 
-            cb(err);
+            if(cb)
+                cb(err);
         })
     }
 }
