@@ -78,8 +78,6 @@ node-analytics may be adapted by the following options:
 
 Key | Description | Default
 --- | --- | ---
-`client_copy` | Copy **node-analytics-client.js** to client-side dir? | `true`
-`client_dir` | Client-side JS directory | `'public/js'`
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
 `db_name` | MongoDB database name | `'node_analytics_db'`
@@ -88,9 +86,8 @@ Key | Description | Default
 `geo_ip` | Use GeoIP boolean  | `true`
 `mmdb` | MaxMind DB path | `'GeoLite2-City.mmdb'`
 `log` | Output log boolean | `true`
-`log_pre` | Output log prefix | `'node-analytics ||'`
 `error_log` | Error log boolean | `true`
-`error_pre` | Error log prefix | `'node-analytics ERROR ||'`
+`secure` | Cookies: HTTPS only boolean | `true`
 
 Example use with WebSocket server instead of port (see necessary client edit below):
 
