@@ -184,7 +184,9 @@ function socketConnection(socket){
 
             // log and initiate socket sensitivity
             if(request){
-                log.session(session, 'socket connected, request:', this.request._id);
+                if(opts.log)
+                    log.session(session, 'socket connected, request:', this.request._id);
+
                 socketResponse(this);
             }
             else {
@@ -228,19 +230,22 @@ let _socket = {
         if(this.if_req)
             update.request(this, { $push: { clicks : id }});
 
-        log.session(this.session, 'socket click in [', id, ']')
+        if(opts.log)
+            log.session(this.session, 'socket click in [', id, ']')
     },
     reach: function(id){
         if(this.if_req)
             update.request(this, { $push: { reaches: id }});
 
-        log.session(this.session, 'socket reach in [', id, ']')
+        if(opts.log)
+            log.session(this.session, 'socket reach in [', id, ']')
     },
     pause: function(params){
         if(this.if_req)
             update.request(this, { $push: { pauses: params }});
 
-        log.session(this.session, 'socket pause in [', params, ']')
+        if(opts.log)
+            log.session(this.session, 'socket pause in [', params, ']')
     },
 
     blur: function(){
@@ -267,11 +272,12 @@ let _socket = {
         // update request & session
         this.request.time = t;
         if(this.if_req)
-            update.request(this, { time: t });
+            update.request(this, { $set: { time: t }});
 
         update.session(this.session, { $set: { session_time: session_t }});
 
-        log.session(this.session, 'socket disconnected');
+        if(opts.log)
+            log.session(this.session, 'socket disconnected');
     }
 };
 
@@ -352,7 +358,9 @@ function getSession(req, res, callback){
             else {
                 if(opts.log)
                     log('Session continues :: id:', this.cookies.na_session);
+
                 session.continued = true;
+
                 callback(null, this.req, this.res, session);
             }
 
@@ -372,6 +380,7 @@ function getSession(req, res, callback){
     function userSession(){
         if(opts.log)
             log('Old user, new session :: user:', cookies.na_user);
+
         callback(null, req, res, new Session({ user: cookies.na_user }))
     }
     function newSession(){
@@ -514,18 +523,23 @@ function sessionSave(session, request, callback){
             if(err)
                 return callback('db session save error');
 
-            log.session(session, 'session active [ new ]');
-            return callback(null, session);
-        });
+            if(opts.log)
+                log.session(session, 'session active [ new ]');
+
+            return callback(null, this);
+
+        }.bind(session));
     }
     else {
         // an old session: all that needs be updated is request
-        update.session(session, {$push: {reqs: request}}, function(err){
+        update.session(session, {$push: {reqs: request}}, function(err, doc){
             if(err)
                 return callback('db session update error');
 
-            log.session(session, 'session active [ updated ]');
-            callback(null, session);
+            if(opts.log)
+                log.session(doc, 'session active [ updated ]');
+
+            callback(null, doc);
         });
     }
 }
@@ -541,19 +555,19 @@ function sessionFlash(session, callback){
             session.flash_data[k].endurance--;
     }
 
-    update.session(session, { $set: { flash_data: session.flash_data }}, (err) => {
+    update.session(session, { $set: { flash_data: session.flash_data }}, function(err){
         if(err)
             log.error('sessionFlash update error', err);
 
-        callback(null, session);
-    });
+        callback(null, this);
+
+    }.bind(session));
 }
 
 function Flash(field, value, endurance, cb){
 
     // Return saved field value
     if(typeof value === 'undefined'){
-
         if(!this.flash_data || !this.flash_data[field])
             return null;
 
@@ -579,59 +593,60 @@ function Flash(field, value, endurance, cb){
             val: value,
             endurance: endurance
         };
-        this.save((err) => {
+        update.session(this, { $set: { flash_data: this.flash_data }}, (err, doc) => {
             if(err)
                 log.error('flash data save error', err);
 
             if(cb)
                 cb(err);
-        })
+        });
     }
 }
 
 // =====================
 
 let update = {
-    session: function(session, params, callback){
+    session: function(session, params, cb){
+
         var keys = update._keys(params);
-        
-        Session.findByIdAndUpdate(session._id, params, function(err){
+
+        Session.findByIdAndUpdate(session._id, params, { new: true }, function(err, doc){
             if(err)
-                log.error('session update error [', keys, ']', session._id, err);
-            else
-                log.session(session, 'session updated [', keys, ']');
+                log.error('session update error [', keys, ']', doc._id, err);
+            else if(opts.log)
+                log.session(doc, 'session updated [', keys, ']');
             
-            if(callback)
-                return callback(err);
+            if(cb)
+                return cb(err, doc);
         })
     },
     request: function(socket, params_in, callback){
-        //update.request(session, request, { $push: { clicks : id }})
-        //update.request(session, request, { time: t })
         
-        var params = {};
-        
-        for(var k in params_in){
-            if(k === '$push'){
-                if(!params.$push) params.$push = {};
-                
-                for(var l in params_in.$push)
-                    params.$push[key] = params_in.$push[update._reqkey(l)];
+        let params = {};
+
+        for(let k in params_in){
+            // $push: { clicks: id }
+            // -->
+            // $push: { reqs.$.clicks: id }
+
+            if(!params[k])
+                params[k] = {};
+
+            for(let k2 in params_in[k]){
+                let req_key = 'reqs.$.' + k2;
+                params[k][req_key] = params_in[k][k2];
             }
-            else
-                params[key] = params_in[update._reqkey(k)];
         }
-        
-        var keys = update._keys(params);
+
+        let keys = update._keys(params);
         
         Session.update({
             _id: socket.session._id,
             "reqs._id": socket.request._id
         }, params, function(err, raw){
-
             if(err)
                 log.error('request update error [', this.keys, ']', this.socket.request._id, err);
-            else
+            else if(opts.log)
                 log.session(this.socket.session, 'request updated [', this.keys, ']', raw);
             
             if(callback)
@@ -646,19 +661,11 @@ let update = {
 
         let keys = [];
 
-        for(let k in params){
-            if(k === '$push'){
-                for(let l in params[k])
-                    keys.push(l);
-            }
-            else
-                keys.push(k);
-        }
+        for(let k in params)
+            for(let k2 in params[k])
+                keys.push(k2);
 
         return keys;
-    },
-    _reqkey: function(key){
-        return 'reqs.$.' + key;
     }
 };
 
