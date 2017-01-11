@@ -92,6 +92,7 @@ var opts = {
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
   , error_log:  true
+  , secure:     true
 };
 
 log("active: wait for MongoDB, GeoIP, & WebSocket");
@@ -390,12 +391,14 @@ function getSession(req, res, callback){
 function setCookies(req, res, session, callback){
     // Set cookies
     res.cookie('na_session', session._id.toString(), {
-        maxAge:     1000 * 60 * 15              // 15 mins
-        , httpOnly:   true
+        maxAge:     1000 * 60 * 15,              // 15 mins
+        httpOnly:   true,
+        secure:     opts.secure
     });
     res.cookie('na_user', session.user, {
-        maxAge:     1000 * 60 * 60 * 24 * 365   // 1 year
-        , httpOnly:   true
+        maxAge:     1000 * 60 * 60 * 24 * 365,   // 1 year
+        httpOnly:   true,
+        secure:     opts.secure
     });
 
     callback(null, req, res, session)
