@@ -498,7 +498,8 @@ function newRequest(req, res, session, callback){
     let req_index = session.reqs.length;
     res.cookie('na_req_index', req_index, {
         maxAge:     1000 * 60 * 15,             // 15 mins
-        httpOnly:   true
+        httpOnly:   true,
+        secure:     opts.secure
     });
 
     // return request object: will be added at sessionSave();
