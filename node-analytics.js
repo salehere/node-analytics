@@ -32,6 +32,7 @@ var db,
 
 let Request_Schema = mongoose.Schema({
     host: String
+    , date: { type: Date, default: Date.now }
     , url: { type: String, index: true }
     , query: [{ field: String, value: String }]
     , ref: { type: String, index: true }
@@ -47,6 +48,7 @@ let Request_Schema = mongoose.Schema({
 let Session_Schema = mongoose.Schema({
     user: { type: String, index: true }
     , date: { type: Date, default: Date.now }
+    , last: { type: Date, default: Date.now }
     , ip: String
     , is_bot: { type: Boolean, default: true }
     , geo: {
@@ -76,7 +78,6 @@ let Session_Schema = mongoose.Schema({
     , flash_data: mongoose.Schema.Types.Mixed
 });
 
-let Request = mongoose.model('Request', Request_Schema);
 let Session = mongoose.model('Session', Session_Schema);
 
 module.exports = analytics;
@@ -360,8 +361,9 @@ function getSession(req, res, callback){
                     log('Session continues :: id:', this.cookies.na_session);
 
                 session.continued = true;
-
-                callback(null, this.req, this.res, session);
+                update.session(session, { $set: { last: Date.now() }}, function(err, doc){
+                    callback(err, this.req, this.res, doc)
+                }.bind(this));
             }
 
         }.bind({
