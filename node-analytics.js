@@ -47,6 +47,7 @@ let Request_Schema = mongoose.Schema({
 });
 let Session_Schema = mongoose.Schema({
     user: { type: String, index: true }
+    , site_id: { type: Schema.Types.ObjectId, index: true }
     , date: { type: Date, default: Date.now }
     , last: { type: Date, default: Date.now }
     , ip: String
@@ -360,9 +361,9 @@ function getSession(req, res, callback){
                 if(opts.log)
                     log('Session continues :: id:', this.cookies.na_session);
 
-                session.continued = true;
-                update.session(session, { $set: { last: Date.now() }}, function(err, doc){
-                    callback(err, this.req, this.res, doc)
+                update.session(session, { $set: { last: Date.now() }}, function(err, session){
+                    session.continued = true;
+                    callback(err, this.req, this.res, session)
                 }.bind(this));
             }
 
@@ -547,6 +548,12 @@ function sessionSave(session, request, callback){
 }
 
 function sessionFlash(session, callback){
+
+    // ===========================
+    // SESSION OBJECT FUNCTIONS
+    // ===========================
+    session.associate = ID_Update.bind(session);
+
     session.flash = Flash.bind(session);
 
     // Expire and clear flash data
@@ -564,6 +571,15 @@ function sessionFlash(session, callback){
         callback(null, this);
 
     }.bind(session));
+}
+
+// =====================
+
+function ID_Update(site_id){
+    update.session(this, { $set: { site_id: site_id }}, (err) => {
+        if(err)
+            log.error('site_id save error', err);
+    });
 }
 
 function Flash(field, value, endurance, cb){
