@@ -47,7 +47,7 @@ let Request_Schema = mongoose.Schema({
 });
 let Session_Schema = mongoose.Schema({
     user: { type: String, index: true }
-    , site_id: { type: mongoose.Schema.Types.ObjectId, index: true }
+    , name: { type: String, index: true }
     , date: { type: Date, default: Date.now }
     , last: { type: Date, default: Date.now }
     , ip: String
@@ -552,7 +552,7 @@ function sessionFlash(session, callback){
     // ===========================
     // SESSION OBJECT FUNCTIONS
     // ===========================
-    session.associate = ID_Update.bind(session);
+    session.identify = Identify.bind(session);
 
     session.flash = Flash.bind(session);
 
@@ -575,10 +575,10 @@ function sessionFlash(session, callback){
 
 // =====================
 
-function ID_Update(site_id){
-    update.session(this, { $set: { site_id: site_id }}, (err) => {
+function Identify(name){
+    update.session(this, { $set: { name: name }}, (err) => {
         if(err)
-            log.error('site_id save error', err);
+            log.error('session.associate: name save error', err);
     });
 }
 
