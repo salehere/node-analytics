@@ -21,7 +21,7 @@
     "url": "http://github.com/andrao/node-analytics/issues"
   },
   "dependencies": {
-    "andrao-logger": "^0.0.13",
+    "andrao-logger": "^0.0.14",
     "async": "^1.5.2",
     "colors": "^1.1.2",
     "cookie": "^0.3.1",
