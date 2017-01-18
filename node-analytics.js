@@ -47,7 +47,7 @@ let Request_Schema = mongoose.Schema({
 });
 let Session_Schema = mongoose.Schema({
     user: { type: String, index: true }
-    , site_id: { type: Schema.Types.ObjectId, index: true }
+    , site_id: { type: mongoose.Schema.Types.ObjectId, index: true }
     , date: { type: Date, default: Date.now }
     , last: { type: Date, default: Date.now }
     , ip: String
