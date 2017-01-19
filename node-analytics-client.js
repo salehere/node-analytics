@@ -43,6 +43,8 @@ var na_pause = {};
         if(na_obj.ws_port)
             url += ':' + na_obj.ws_port;
 
+        url += '/node-analytics';
+
         return io.connect(url);
     }
     
@@ -53,17 +55,20 @@ var na_pause = {};
     na_obj_calibrate();
     
     // resolution
-    na_emit('resolution', { width: window.innerWidth, height: window.innerHeight })
+    na_emit('resolution', { width: window.innerWidth, height: window.innerHeight });
     
     // clicks
     var links = document.getElementsByClassName(na_obj.click_class);
     for(var i = 0; i < links.length; i++){
         addEvent(links[i], 'click', function(){
             // has been clicked :: emit to server
-            var id = this.id || 'click_link_' + i
+            var id = this.link.id || ('click_link_' + this.i);
             na_emit('click', id);
-        });
-    };
+        }.bind({
+            link: links[i],
+            i: i
+        }));
+    }
     
     // reaches && pauses :: check with every scroll
     addEvent(window, 'scroll', function(){
@@ -119,11 +124,11 @@ var na_pause = {};
     addEvent(window, 'focus', function(){
         na_timer_start();
         na_emit('focus');
-    })
+    });
     addEvent(window, 'blur', function(){
         clearInterval(na_pause.timer);
         na_emit('blur');
-    })
+    });
     
     function addEvent(obj, type, fn){
         // John Resig's addEvent : http://ejohn.org/projects/flexible-javascript-events/
@@ -131,10 +136,11 @@ var na_pause = {};
             obj['e' + type + fn] = fn;
             obj[type + fn] = function(){
                 obj['e' + type + fn]( window.event );
-            }
+            };
             obj.attachEvent('on' + type, obj[type + fn]);
         }
-        else obj.addEventListener(type, fn);
+        else
+            obj.addEventListener(type, fn);
     }
 })();
 
@@ -157,7 +163,7 @@ function na_obj_calibrate(){
             }
         }
         else na_obj.reach_data[i].y = y;
-    };
+    }
     
     for(var i = 0; i < na_obj.pauses.length; i++){
         var ele = na_obj.pauses[i];
@@ -167,7 +173,7 @@ function na_obj_calibrate(){
             y_IN:   y
           , y_OUT:  y + ele.offsetHeight
         };
-    };
+    }
     
     function getOffset(ele){
         var yOffset = ele.offsetTop;
@@ -176,7 +182,7 @@ function na_obj_calibrate(){
         while(parent.parentNode){
             yOffset += parent.offsetTop;
             parent = parent.parentNode
-        };
+        }
         
         return yOffset;
     }

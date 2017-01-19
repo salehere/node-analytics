@@ -81,13 +81,15 @@ Key | Description | Default
 `db_host` | MongoDB host | `'localhost'`
 `db_port` | MongoDB port | `27017`
 `db_name` | MongoDB database name | `'node_analytics_db'`
-`ws_port` | WebSocket port; disabled if `ws_server` is set | `8080`
-`ws_server` | Express server object | `null`
+`ws_port` | WebSocket port; disabled if `ws_server` or `s_io` is set | `8080`
+`ws_server` | Express server object; disabled if `s_io` is set | `null`
+`s_io` | socket.io server object | `null`
 `geo_ip` | Use GeoIP boolean  | `true`
 `mmdb` | MaxMind DB path | `'GeoLite2-City.mmdb'`
 `log` | Output log boolean | `true`
 `error_log` | Error log boolean | `true`
 `secure` | Cookies: HTTPS only boolean | `true`
+`secret` | Cookies: AES encryption key | `'changeMe'`
 
 Example use with WebSocket server instead of port (see necessary client edit below):
 
@@ -100,12 +102,27 @@ app.use(analytics({
 }));
 ```
 
+Example use with socket.io server:
+
+```javascript
+var server = require('http').createServer(app);
+server.listen(80);
+
+var io = require('socket.io').listen(server);
+// OR:
+var io = require('socket.io').listen(8080);
+
+app.use(analytics({
+  s_io: io
+}));
+```
+
 #### Client
 
 Key | Description | Default
 --- | --- | ---
 `ws_host` | Websocket host | `location.hostname`
-`ws_port` | Websocket port; must disable if using `ws_server` in **app.js** | `8080`
+`ws_port` | Websocket port; disable if using `ws_server` or `s_io` in **app.js** | `8080`
 `click_class` | Click-log class | `'na_click'`
 `reach_class` | Reach-log class | `'na_reach'`
 `read_class` | Read-log class | `'na_read'`

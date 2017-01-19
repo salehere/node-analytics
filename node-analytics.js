@@ -20,8 +20,9 @@ var get_ip = require('ipware')().get_ip
 ,   cookie = require('cookie')
 ,   async = require('async')
 ,   s_io = require('socket.io')
-,   colours = require('colors/safe'),
-    log = require('andrao-logger')('NODE ANALYTICS');
+,   colours = require('colors/safe')
+,   CryptoJS = require('crypto-js')
+,   log = require('andrao-logger')('NODE ANALYTICS');
 
 // globals
 var db,
@@ -31,11 +32,13 @@ var db,
 // -------------------------------------------------------------
 
 let Request_Schema = mongoose.Schema({
-    host: String
+    _id: { type: String, unique: true, index: true }
+    , host: String
     , date: { type: Date, default: Date.now }
     , url: { type: String, index: true }
     , query: [{ field: String, value: String }]
     , ref: { type: String, index: true }
+    , referrer: String
     , method: { type: String }
     , time: Number
     , reaches: [String]
@@ -78,7 +81,6 @@ let Session_Schema = mongoose.Schema({
     , state: String
     , flash_data: mongoose.Schema.Types.Mixed
 });
-
 let Session = mongoose.model('Session', Session_Schema);
 
 module.exports = analytics;
@@ -90,11 +92,13 @@ var opts = {
   , db_name:    'node_analytics_db'
   , ws_port:    8080
   , ws_server:  false
+  , s_io:       false
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
   , error_log:  true
   , secure:     true
+  , secret:     'changeMe'
 };
 
 log("active: wait for MongoDB, GeoIP, & WebSocket");
@@ -135,19 +139,19 @@ function geoDB(cb){
 
 function socketInit(cb){
 
-    io = opts.ws_server ? s_io.listen(opts.ws_server) : s_io(opts.ws_port);
+    io = opts.s_io ? opts.s_io : opts.ws_server ? s_io.listen(opts.ws_server) : s_io(opts.ws_port);
 
-    io.use(function(socket, next){
-        if(socket.handshake.headers.cookie){
-
-            let cookies = socketCookies(socket);
-            if(cookies && cookies.na_session)
-                next();
-        }
-        else log.error('Socket authentication error; no session cookie')
-    });
-
-    io.on('connection', socketConnection);
+    io.of('/node-analytics')
+        .use(function(socket, next){
+            if(socket.handshake.headers.cookie){
+                let cookies = getCookies(socket.handshake.headers.cookie);
+                if(cookies && cookies.na_session)
+                    next();
+            }
+            else
+                log.error('Socket authentication error; no session cookie');
+        })
+        .on('connection', socketConnection);
 
     log('Websocket server established');
 
@@ -156,18 +160,14 @@ function socketInit(cb){
 
 // =====================
 
-function socketCookies(socket){
-    return cookie.parse(socket.handshake.headers.cookie || '');
-}
-
 function socketConnection(socket){
 
-    let cookies = socketCookies(socket);
+    let cookies = getCookies(socket.handshake.headers.cookie);
 
     socket.session_start = Date.now();
     socket.blurred = 0;
     socket.blurring = Date.now();
-    socket.req_index = cookies.na_req_index;
+    socket.req_id = cookies.na_req;
     socket.session_id = cookies.na_session;
 
     // Get session
@@ -175,40 +175,43 @@ function socketConnection(socket){
         Session.findById(socket.session_id, function(err, session){
             if(err)
                 return log.error('Session find error :: id[socket]', this.session_id, err);
-            if(!result)
+            if(!session)
                 return log.error('Session not found :: id[socket]', this.session_id);
 
-            // set regional session and request
-            this.session = session;
-            this.request = this.session.reqs[this.req_index];
+            let socket = this;
 
-            // could alternatively get request by session.reqs.id with req_id cookie
+            // set regional session and request
+            socket.session = session;
+            if(socket.req_id){
+                for(let i = session.reqs.length - 1; i >= 0; i--){
+                    if(session.reqs[i]._id.toString() == socket.req_id){
+                        socket.req = session.reqs[i];
+                        break;
+                    }
+                }
+            }
 
             // log and initiate socket sensitivity
-            if(request){
-                if(opts.log)
-                    log.session(session, 'socket connected, request:', this.request._id);
+            if(!socket.req)
+                log.error('socket connected; request not found');
+            else if(opts.log)
+                log.session(session, 'socket connected; request:', socket.req._id);
 
-                socketResponse(this);
-            }
-            else {
-                log.error('socket connected, request not found');
-                socketResponse(this, true);
-            }
+            socketResponse(socket);
+
         }.bind(socket));
     }
 
     // =============
 
-    function socketResponse(socket, if_req){
+    function socketResponse(socket){
 
         // session updates from the client
 
-        if(if_req)
-            socket.if_req = if_req;
-
+        // Trivial not-bot check: socket connects;
+        //   Could / should be improved to having done action on page
         if(socket.session.is_bot)
-            update.session(socket.session, { $set: { is_bot: false}});
+            update.session(socket.session, { $set: { is_bot: false }});
 
         if(!socket.session.resolution)
             socket.on('resolution', _socket.resolution.bind(socket));
@@ -229,21 +232,21 @@ function socketConnection(socket){
 
 let _socket = {
     click: function(id){
-        if(this.if_req)
+        if(this.req)
             update.request(this, { $push: { clicks : id }});
 
         if(opts.log)
             log.session(this.session, 'socket click in [', id, ']')
     },
     reach: function(id){
-        if(this.if_req)
+        if(this.req)
             update.request(this, { $push: { reaches: id }});
 
         if(opts.log)
             log.session(this.session, 'socket reach in [', id, ']')
     },
     pause: function(params){
-        if(this.if_req)
+        if(this.req)
             update.request(this, { $push: { pauses: params }});
 
         if(opts.log)
@@ -272,8 +275,8 @@ let _socket = {
             session_t += this.session.reqs[i].time;
 
         // update request & session
-        this.request.time = t;
-        if(this.if_req)
+        this.req.time = t;
+        if(this.req)
             update.request(this, { $set: { time: t }});
 
         update.session(this.session, { $set: { session_time: session_t }});
@@ -332,7 +335,7 @@ function analytics(opts_in){
 
 // populate var session; returns boolean on whether newly formed
 function getSession(req, res, callback){
-    var cookies = cookie.parse(req.headers.cookie || '');
+    let cookies = getCookies(req.headers.cookie);
 
     // cookies.na_session  :: session._id
     // cookies.na_user     :: session.user
@@ -402,12 +405,12 @@ function getSession(req, res, callback){
 // set cookies
 function setCookies(req, res, session, callback){
     // Set cookies
-    res.cookie('na_session', session._id.toString(), {
+    res.cookie('na_session', AES.encrypt(session._id.toString()), {
         maxAge:     1000 * 60 * 15,              // 15 mins
         httpOnly:   true,
         secure:     opts.secure
     });
-    res.cookie('na_user', session.user, {
+    res.cookie('na_user', AES.encrypt(session.user), {
         maxAge:     1000 * 60 * 60 * 24 * 365,   // 1 year
         httpOnly:   true,
         secure:     opts.secure
@@ -484,11 +487,14 @@ function sessionData(req, res, session, callback){
 }
 
 // return new request document
+// create req cookie
 function newRequest(req, res, session, callback){
     let request = {
+        _id: `r${crypto.randomBytes(16).toString('hex')}${Date.now()}`,
         host: req.hostname,
         url: req.url,
-        method: req.method
+        method: req.method,
+        referrer: req.get('Referrer')
     };
 
     // populate request query
@@ -500,15 +506,14 @@ function newRequest(req, res, session, callback){
                 request.query = [];
 
             request.query.push({
-                field: field
-                , value: req.query[field]
+                field: field,
+                value: req.query[field]
             })
         }
     }
 
-    // add request index cookie
-    let req_index = session.reqs.length;
-    res.cookie('na_req_index', req_index, {
+    // add request cookie for communication/association with socket
+    res.cookie('na_req', AES.encrypt(request._id), {
         maxAge:     1000 * 60 * 15,             // 15 mins
         httpOnly:   true,
         secure:     opts.secure
@@ -660,10 +665,10 @@ let update = {
         
         Session.update({
             _id: socket.session._id,
-            "reqs._id": socket.request._id
+            "reqs._id": socket.req._id
         }, params, function(err, raw){
             if(err)
-                log.error('request update error [', this.keys, ']', this.socket.request._id, err);
+                log.error('request update error [', this.keys, ']', this.socket.req._id, err);
             else if(opts.log)
                 log.session(this.socket.session, 'request updated [', this.keys, ']', raw);
             
@@ -684,6 +689,28 @@ let update = {
                 keys.push(k2);
 
         return keys;
+    }
+};
+
+// =====================
+
+function getCookies(src){
+    let cookies = cookie.parse(src || '');
+    for(let k in cookies){
+        if(k.indexOf('na_') === 0){
+            cookies[k] = AES.decrypt(cookies[k]);
+        }
+    }
+
+    return cookies;
+}
+
+let AES = {
+    encrypt: function(value){
+        return CryptoJS.AES.encrypt(value, opts.secret).toString();
+    },
+    decrypt: function(encrypted){
+        return CryptoJS.AES.decrypt(encrypted, opts.secret).toString(CryptoJS.enc.Utf8);
     }
 };
 
