@@ -635,13 +635,13 @@ let update = {
 
         Session.findByIdAndUpdate(session._id, params, { new: true }, function(err, doc){
             if(err)
-                log.error('session update error [', keys, ']', doc._id, err);
+                log.error('session update error [', this, ']', err);
             else if(opts.log)
-                log.session(doc, 'session updated [', keys, ']');
+                log.session(doc, 'session updated [', this, ']');
             
             if(cb)
                 return cb(err, doc);
-        })
+        }.bind(keys))
     },
     request: function(socket, params_in, callback){
         
