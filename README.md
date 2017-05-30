@@ -5,7 +5,7 @@
 ## Installation
 
 ```sh
-$ npm install node-analytics
+$ npm install --save node-analytics
 ```
 
 ## Prerequisites
