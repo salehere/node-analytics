@@ -7,31 +7,31 @@
 'use strict';
 
 // defaults
-var fs = require('fs')
+const fs = require('fs')
 ,   path = require('path')
 ,   http = require('http')
 ,   crypto = require('crypto');
 
 // installed
-var get_ip = require('ipware')().get_ip
+const get_ip = require('ipware')().get_ip
 ,   mongoose = require('mongoose')
 ,   useragent = require('useragent')
 ,   maxmind = require('maxmind')
 ,   cookie = require('cookie')
 ,   async = require('async')
 ,   s_io = require('socket.io')
-,   colours = require('colors/safe')
+,   chalk = require('colors/safe')
 ,   CryptoJS = require('crypto-js')
 ,   log = require('andrao-logger')('NODE ANALYTICS');
 
 // globals
-var db,
+let db,
     geo_lookup,
     io = false;
 
 // -------------------------------------------------------------
 
-let Request_Schema = mongoose.Schema({
+const Request_Schema = mongoose.Schema({
     _id: { type: String, unique: true, index: true }
     , host: String
     , date: { type: Date, default: Date.now }
@@ -48,7 +48,7 @@ let Request_Schema = mongoose.Schema({
     }]
     , clicks: [String]
 });
-let Session_Schema = mongoose.Schema({
+const Session_Schema = mongoose.Schema({
     user: { type: String, index: true }
     , name: { type: String, index: true }
     , date: { type: Date, default: Date.now }
@@ -81,13 +81,13 @@ let Session_Schema = mongoose.Schema({
     , state: String
     , flash_data: mongoose.Schema.Types.Mixed
 });
-let Session = mongoose.model('Session', Session_Schema);
+const Session = mongoose.model('Session', Session_Schema);
 
 module.exports = analytics;
 module.exports.sessions = sessions;
 
-var opts = {
-    db_host:    'localhost'
+const opts = {
+    db_host:    '127.0.0.1'
   , db_port:    27017
   , db_name:    'node_analytics_db'
   , ws_port:    8080
@@ -96,17 +96,18 @@ var opts = {
   , geo_ip:     true
   , mmdb:       'GeoLite2-City.mmdb'
   , log:        true
+  , log_all:    false
   , error_log:  true
   , secure:     true
   , secret:     'changeMe'
 };
 
 log("active: wait for MongoDB, GeoIP, & WebSocket");
-log("don't forget to copy", colours.red('node-analytics-client.js'), "to public directory");
+log("don't forget to copy", chalk.red('node-analytics-client.js'), "to public directory");
 
 function mongoDB(cb){
     // Connect to MongoDB
-    var db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
+    let db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
     db = mongoose.connect(db_url).connection;
     db.on('error', function(err) {
         log.error('MongoDB error: Data will not be saved :: err:', err)
@@ -194,7 +195,7 @@ function socketConnection(socket){
             // log and initiate socket sensitivity
             if(!socket.req)
                 log.error('socket connected; request not found');
-            else if(opts.log)
+            else if(opts.log_all)
                 log.session(session, 'socket connected; request:', socket.req._id);
 
             socketResponse(socket);
@@ -230,27 +231,27 @@ function socketConnection(socket){
     }
 }
 
-let _socket = {
+const _socket = {
     click: function(id){
         if(this.req)
             update.request(this, { $push: { clicks : id }});
 
         if(opts.log)
-            log.session(this.session, 'socket click in [', id, ']')
+            log.session(this.session, chalk.green('click'), '@', chalk.cyan(id))
     },
     reach: function(id){
         if(this.req)
             update.request(this, { $push: { reaches: id }});
 
         if(opts.log)
-            log.session(this.session, 'socket reach in [', id, ']')
+            log.session(this.session, chalk.yellow('reach'), '@', chalk.cyan(id))
     },
     pause: function(params){
         if(this.req)
             update.request(this, { $push: { pauses: params }});
 
         if(opts.log)
-            log.session(this.session, 'socket pause in [', params, ']')
+            log.session(this.session, chalk.green('click'), '@', chalk.cyan(params.id))
     },
 
     blur: function(){
@@ -281,7 +282,7 @@ let _socket = {
 
         update.session(this.session, { $set: { session_time: session_t }});
 
-        if(opts.log)
+        if(opts.log_all)
             log.session(this.session, 'socket disconnected');
     }
 };
@@ -300,7 +301,7 @@ function analytics(opts_in){
         if(err)
             return log.error('start-up interrupted');
 
-        log(colours.green('NODE ANALYTICS READY'));
+        log(chalk.green('NODE ANALYTICS READY'));
     });
 
     // HTTP request:
@@ -342,7 +343,7 @@ function getSession(req, res, callback){
 
     // Establish session: new/old session? new/old user?
     if(cookies.na_session){
-        if(opts.log)
+        if(opts.log_all)
             log('Session cookie found:', cookies.na_session);
 
         Session.findById(cookies.na_session, function(err, session){
@@ -531,7 +532,7 @@ function sessionSave(session, request, callback){
             if(err)
                 return callback('db session save error');
 
-            if(opts.log)
+            if(opts.log_all)
                 log.session(session, 'session active [ new ]');
 
             return callback(null, this);
@@ -544,7 +545,7 @@ function sessionSave(session, request, callback){
             if(err)
                 return callback('db session update error');
 
-            if(opts.log)
+            if(opts.log_all)
                 log.session(doc, 'session active [ updated ]');
 
             callback(null, doc);
@@ -636,7 +637,7 @@ let update = {
         Session.findByIdAndUpdate(session._id, params, { new: true }, function(err, doc){
             if(err)
                 log.error('session update error [', this, ']', err);
-            else if(opts.log)
+            else if(opts.log_all)
                 log.session(doc, 'session updated [', this, ']');
             
             if(cb)
@@ -669,8 +670,8 @@ let update = {
         }, params, function(err, raw){
             if(err)
                 log.error('request update error [', this.keys, ']', this.socket.req._id, err);
-            else if(opts.log)
-                log.session(this.socket.session, 'request updated [', this.keys, ']', raw);
+            else if(opts.log_all)
+                log.session(this.socket.session, 'request updated [', this.keys, ']');
             
             if(callback)
                 return callback(err);
