@@ -251,7 +251,7 @@ const _socket = {
             update.request(this, { $push: { pauses: params }});
 
         if(opts.log)
-            log.session(this.session, chalk.magenta('pause'), '@', chalk.cyan(params.id), `[ ${params.time} ]`, )
+            log.session(this.session, chalk.magenta('pause'), '@', chalk.cyan(params.id), `[ ${params.time} ]`)
     },
 
     blur: function(){
