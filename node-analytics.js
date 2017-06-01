@@ -7,21 +7,23 @@
 'use strict';
 
 // defaults
-const fs = require('fs')
-,   path = require('path')
-,   http = require('http')
-,   crypto = require('crypto');
+const fs = require('fs'),
+    path = require('path'),
+    http = require('http'),
+    crypto = require('crypto');
 
 // installed
-const get_ip = require('ipware')().get_ip
-,   mongoose = require('mongoose')
-,   useragent = require('useragent')
-,   maxmind = require('maxmind')
-,   cookie = require('cookie')
-,   async = require('async')
-,   s_io = require('socket.io')
-,   chalk = require('colors/safe')
-,   CryptoJS = require('crypto-js');
+const get_ip = require('ipware')().get_ip,
+    mongoose = require('mongoose'),
+    useragent = require('useragent'),
+    maxmind = require('maxmind'),
+    cookie = require('cookie'),
+    async = require('async'),
+    s_io = require('socket.io'),
+    chalk = require('colors/safe'),
+    CryptoJS = require('crypto-js'),
+    onHeaders = require('on-headers'),
+    onFinished = require('on-finished');
 
 // globals
 let db,
@@ -287,8 +289,8 @@ const _socket = {
 
         update.session(this.session, { $set: { session_time: session_t }});
 
-        if(opts.log_all)
-            log.session(this.session, 'socket disconnected');
+        if(opts.log)
+            log.session(this.session, chalk.red('disconnected'));
     }
 };
 
@@ -328,6 +330,7 @@ function analytics(opts_in){
             setCookies,
             sessionData,
             newRequest,
+            logRequest,
             sessionSave,
             sessionFlash
         ], function(err, session){
@@ -504,11 +507,8 @@ function newRequest(req, res, session, callback){
         host: req.hostname,
         url: req.url,
         method: req.method,
-        referrer: req.get('Referrer')
+        referrer: req.get('Referrer') || req.get('Referer')
     };
-
-    if(opts.log)
-        log.session.apply(log, [session, chalk.magenta(req.url)]);
 
     // populate request query
     for(let field in req.query){
@@ -533,7 +533,67 @@ function newRequest(req, res, session, callback){
     });
 
     // return request object: will be added at sessionSave();
-    callback(null, session, request)
+    callback(null, req, res, session, request)
+}
+
+// log request
+function logRequest(req, res, session, request, cb){
+
+    if(opts.log){
+        onHeaders(res, log_start.bind(res));
+        onFinished(res, req_log.bind(request));
+    }
+
+    cb(null, session, request);
+
+    /// ==============
+
+    function log_start(){
+        this._log_start = process.hrtime();
+    }
+    function req_log(){
+
+        const request = this;
+
+        // Status colour
+        const sc = res.statusCode < 400 ? 'green' : 'red';
+
+        // Res time
+        const ms = nano_time(res._log_start);
+
+        // Referrer
+        let ref = request.referrer;
+        if(ref){
+            ref = ref.replace('http://', '');
+            ref = ref.replace('https://', '');
+        }
+
+
+        // Args
+        const args = [session, '|', chalk.magenta(request.url), '|', request.method, chalk[sc](res.statusCode), `: ${ms} ms`];
+        if(ref)
+            args.push('|', chalk.grey(`from ${ref}`));
+
+        // Apply
+        log.session.apply(log, args);
+
+        // ===
+
+        function nano_time(start){
+            let t = conv(process.hrtime()) - conv(start);   // ns
+            t = Math.round(t / 1000);                       // µs
+            return t / 1000;                                // ms [3 dec]
+
+            // ====
+
+            function conv(t){
+                if(!t | typeof t[0] === 'undefined')
+                    return 0;
+
+                return t[0] * 1e9 + t[1];
+            }
+        }
+    }
 }
 
 // save / update session to DB & proceed to socket
