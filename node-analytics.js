@@ -416,8 +416,6 @@ function getSession(req, res, callback){
 // set cookies
 function setCookies(req, res, session, callback){
 
-    log('session', session)
-
     // Set cookies
     res.cookie('na_session', AES.encrypt(session._id.toString()), {
         maxAge:     1000 * 60 * 15,              // 15 mins
