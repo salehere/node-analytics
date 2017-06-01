@@ -575,7 +575,7 @@ function logRequest(req, res, session, request, cb){
         // Args
         const args = [session, '|', chalk.magenta(request.url), '|', request.method, chalk[sc](res.statusCode), `: ${ms} ms`];
 
-        if(session.system){
+        if(session && session.system){
 
             args.push('|');
 
