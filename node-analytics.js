@@ -158,6 +158,8 @@ function socketInit(cb){
             }
             else
                 log.error('Socket authentication error; no session cookie');
+
+            next();
         })
         .on('connection', socketConnection);
 
