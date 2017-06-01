@@ -541,7 +541,10 @@ function logRequest(req, res, session, request, cb){
 
     if(opts.log){
         onHeaders(res, log_start.bind(res));
-        onFinished(res, req_log.bind(request));
+        onFinished(res, req_log.bind({
+            req: request,
+            ses: session
+        }));
     }
 
     cb(null, session, request);
@@ -553,7 +556,8 @@ function logRequest(req, res, session, request, cb){
     }
     function req_log(){
 
-        const request = this;
+        const request = this.req;
+        const session = this.ses;
 
         // Status colour
         const sc = res.statusCode < 400 ? 'green' : 'red';
@@ -571,6 +575,20 @@ function logRequest(req, res, session, request, cb){
 
         // Args
         const args = [session, '|', chalk.magenta(request.url), '|', request.method, chalk[sc](res.statusCode), `: ${ms} ms`];
+
+        if(session.system){
+            if(session.system.browser){
+                args.push(chalk.grey(session.system.browser.name));
+                args.push(chalk.grey(session.system.browser.version));
+            }
+            if(session.system.os){
+                args.push(chalk.grey(session.system.os.name));
+                args.push(chalk.grey(session.system.os.version));
+            }
+
+            args.push('|');
+        }
+
         if(ref)
             args.push('|', chalk.grey(`from ${ref}`));
 
