@@ -577,6 +577,9 @@ function logRequest(req, res, session, request, cb){
         const args = [session, '|', chalk.magenta(request.url), '|', request.method, chalk[sc](res.statusCode), `: ${ms} ms`];
 
         if(session.system){
+
+            args.push('|');
+
             if(session.system.browser){
                 args.push(chalk.grey(session.system.browser.name));
                 args.push(chalk.grey(session.system.browser.version));
@@ -585,8 +588,6 @@ function logRequest(req, res, session, request, cb){
                 args.push(chalk.grey(session.system.os.name));
                 args.push(chalk.grey(session.system.os.version));
             }
-
-            args.push('|');
         }
 
         if(ref)
