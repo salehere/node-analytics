@@ -405,17 +405,19 @@ function getSession(req, res, callback){
     function newSession(){
 
         // NEW USER, NEW SESSION
-
         // Initiate session to get _id
-        callback(null, req, res, new Session({
-            user: session._id.toString(),
-            new_user: true
-        }));
+        const session = new Session();
+        session.user = session._id.toString();
+
+        callback(null, req, res, session);
     }
 }
 
 // set cookies
 function setCookies(req, res, session, callback){
+
+    log('session', session)
+
     // Set cookies
     res.cookie('na_session', AES.encrypt(session._id.toString()), {
         maxAge:     1000 * 60 * 15,              // 15 mins
