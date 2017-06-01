@@ -21,13 +21,17 @@ const get_ip = require('ipware')().get_ip
 ,   async = require('async')
 ,   s_io = require('socket.io')
 ,   chalk = require('colors/safe')
-,   CryptoJS = require('crypto-js')
-,   log = require('andrao-logger')('n-a');
+,   CryptoJS = require('crypto-js');
 
 // globals
 let db,
     geo_lookup,
     io = false;
+
+const log_opts = {
+    pre: 'n-a'
+};
+let log = require('../andrao-logger')(log_opts);
 
 // -------------------------------------------------------------
 
@@ -101,6 +105,9 @@ const opts = {
   , error_log:  true
   , secure:     true
   , secret:     'changeMe'
+  , log_opts:   {
+        pre: 'n-a'
+    }
 };
 
 log("active: wait for MongoDB, GeoIP, & WebSocket");
@@ -294,6 +301,11 @@ function analytics(opts_in){
     for(let k in opts_in)
         opts[k] = opts_in[k];
 
+    if(!opts.log_opts.pre)
+        opts.log_opts.pre = 'n-a';
+
+    log = require('../andrao-logger')(opts.log_opts);
+
     async.parallelLimit([
         mongoDB,
         socketInit,
@@ -337,7 +349,7 @@ function analytics(opts_in){
 
 // populate var session; returns boolean on whether newly formed
 function getSession(req, res, callback){
-    let cookies = getCookies(req.headers.cookie);
+    const cookies = getCookies(req.headers.cookie);
 
     // cookies.na_session  :: session._id
     // cookies.na_user     :: session.user
@@ -363,9 +375,6 @@ function getSession(req, res, callback){
                     newSession();
             }
             else {
-                if(opts.log)
-                    log('Session continues :: id:', this.cookies.na_session);
-
                 update.session(session, { $set: { last: Date.now() }}, function(err, session){
                     session.continued = true;
                     callback(err, this.req, this.res, session)
@@ -386,21 +395,23 @@ function getSession(req, res, callback){
     // ====================
 
     function userSession(){
-        if(opts.log)
-            log('Old user, new session :: user:', cookies.na_user);
 
-        callback(null, req, res, new Session({ user: cookies.na_user }))
+        // OLD USER, NEW SESSION
+
+        callback(null, req, res, new Session({
+            user: cookies.na_user,
+            new_session: true
+        }))
     }
     function newSession(){
 
+        // NEW USER, NEW SESSION
+
         // Initiate session to get _id
-        let session = new Session();
-        session.user = session._id.toString();
-
-        if(opts.log)
-            log('New user, new session :: user:', session.user);
-
-        callback(null, req, res, session)
+        callback(null, req, res, new Session({
+            user: session._id.toString(),
+            new_user: true
+        }));
     }
 }
 
@@ -491,13 +502,16 @@ function sessionData(req, res, session, callback){
 // return new request document
 // create req cookie
 function newRequest(req, res, session, callback){
-    let request = {
+    const request = {
         _id: `r${crypto.randomBytes(16).toString('hex')}${Date.now()}`,
         host: req.hostname,
         url: req.url,
         method: req.method,
         referrer: req.get('Referrer')
     };
+
+    if(opts.log)
+        log.session.apply(log, [session, chalk.green('request'), chalk.magenta(req.url)]);
 
     // populate request query
     for(let field in req.query){
