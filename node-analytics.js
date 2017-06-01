@@ -31,7 +31,7 @@ let db,
 const log_opts = {
     pre: 'n-a'
 };
-let log = require('../andrao-logger')(log_opts);
+let log = require('andrao-logger')(log_opts);
 
 // -------------------------------------------------------------
 
@@ -187,7 +187,7 @@ function socketConnection(socket){
             if(!session)
                 return log.error('Session not found :: id[socket]', this.session_id);
 
-            let socket = this;
+            const socket = this;
 
             // set regional session and request
             socket.session = session;
@@ -304,7 +304,7 @@ function analytics(opts_in){
     if(!opts.log_opts.pre)
         opts.log_opts.pre = 'n-a';
 
-    log = require('../andrao-logger')(opts.log_opts);
+    log = require('andrao-logger')(opts.log_opts);
 
     async.parallelLimit([
         mongoDB,
