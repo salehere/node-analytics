@@ -28,10 +28,7 @@ let db,
     geo_lookup,
     io = false;
 
-const log_opts = {
-    pre: 'n-a'
-};
-let log = require('andrao-logger')(log_opts);
+let log = require('andrao-logger')('n-a');
 
 // -------------------------------------------------------------
 
@@ -511,7 +508,7 @@ function newRequest(req, res, session, callback){
     };
 
     if(opts.log)
-        log.session.apply(log, [session, chalk.green('request'), chalk.magenta(req.url)]);
+        log.session.apply(log, [session, chalk.magenta(req.url)]);
 
     // populate request query
     for(let field in req.query){
