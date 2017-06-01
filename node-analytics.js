@@ -288,9 +288,6 @@ const _socket = {
             update.request(this, { $set: { time: t }});
 
         update.session(this.session, { $set: { session_time: session_t }});
-
-        if(opts.log)
-            log.session(this.session, chalk.red('disconnected'));
     }
 };
 
