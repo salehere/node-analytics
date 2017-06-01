@@ -22,7 +22,7 @@ const get_ip = require('ipware')().get_ip
 ,   s_io = require('socket.io')
 ,   chalk = require('colors/safe')
 ,   CryptoJS = require('crypto-js')
-,   log = require('andrao-logger')('NODE ANALYTICS');
+,   log = require('andrao-logger')('n-a');
 
 // globals
 let db,
@@ -43,8 +43,9 @@ const Request_Schema = mongoose.Schema({
     , time: Number
     , reaches: [String]
     , pauses: [{
-        section: String
-        , time: Number
+        _id: false,
+        id: String,
+        time: Number
     }]
     , clicks: [String]
 });
@@ -290,7 +291,7 @@ const _socket = {
 // ===============
 
 function analytics(opts_in){
-    for(var k in opts_in)
+    for(let k in opts_in)
         opts[k] = opts_in[k];
 
     async.parallelLimit([
@@ -629,7 +630,7 @@ function Flash(field, value, endurance, cb){
 
 // =====================
 
-let update = {
+const update = {
     session: function(session, params, cb){
 
         var keys = update._keys(params);
@@ -706,7 +707,7 @@ function getCookies(src){
     return cookies;
 }
 
-let AES = {
+const AES = {
     encrypt: function(value){
         return CryptoJS.AES.encrypt(value, opts.secret).toString();
     },

@@ -87,7 +87,7 @@ var na_pause = {};
         }
         
         // pauses: start from bottom to find which we're in;
-        var p_Y = window.scrollY + 0.5 * h
+        var p_Y = window.scrollY + 0.5 * h;
         
         for(var i = 0; i < na_obj.pauses.length; i++){
             var obj = na_obj.pauses[i]
@@ -102,7 +102,7 @@ var na_pause = {};
                 if(na_pause.active){
                     var id = na_pause.active.id || 'read_section_' + na_pause.index;
                     
-                    if(na_pause.t > 0){
+                    if(na_pause.t > 1){
                         na_emit('pause', {
                             id:     id
                           , time:   parseFloat(na_pause.t.toFixed(1))
