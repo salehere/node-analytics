@@ -406,6 +406,7 @@ function getSession(req, res, callback){
         // Initiate session to get _id
         const session = new Session();
         session.user = session._id.toString();
+        session.new_user = true;
 
         callback(null, req, res, session);
     }
