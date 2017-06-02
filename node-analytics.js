@@ -152,14 +152,12 @@ function socketInit(cb){
     io.of('/node-analytics')
         .use(function(socket, next){
             if(socket.handshake.headers.cookie){
-                let cookies = getCookies(socket.handshake.headers.cookie);
+                const cookies = getCookies(socket.handshake.headers.cookie);
                 if(cookies && cookies.na_session)
                     next();
             }
             else
                 log.error('Socket authentication error; no session cookie');
-
-            next();
         })
         .on('connection', socketConnection);
 
@@ -172,7 +170,7 @@ function socketInit(cb){
 
 function socketConnection(socket){
 
-    let cookies = getCookies(socket.handshake.headers.cookie);
+    const cookies = getCookies(socket.handshake.headers.cookie);
 
     socket.session_start = Date.now();
     socket.blurred = 0;
