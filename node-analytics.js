@@ -604,7 +604,7 @@ function logRequest(req, res, session, request, cb){
             // ====
 
             function conv(t){
-                if(!t | typeof t[0] === 'undefined')
+                if(!t || typeof t[0] === 'undefined')
                     return 0;
 
                 return t[0] * 1e9 + t[1];
