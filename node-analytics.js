@@ -275,7 +275,7 @@ const _socket = {
 
     disconnect: function(){
         // request time, sans blurred time
-        let t = (Date.now() - this.session_start - this.blurred) / 1000;
+        const t = (Date.now() - this.session_start - this.blurred) / 1000;
 
         // total session time; begin with this request
         let session_t = t;
@@ -288,6 +288,9 @@ const _socket = {
             update.request(this, { $set: { time: t }});
 
         update.session(this.session, { $set: { session_time: session_t }});
+
+        if(opts.log)
+            log.session(this.session, chalk.red(t));
     }
 };
 
