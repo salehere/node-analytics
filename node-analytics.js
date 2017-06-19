@@ -656,9 +656,9 @@ function sessionFlash(session, callback){
 
     // Expire and clear flash data
     for(let k in session.flash_data){
-        if(!session.flash_data[k].endurance || !(session.flash_data[k].endurance - 1))
+        if(session.flash_data[k].endurance !== 'indefinite' && (!session.flash_data[k].endurance || !(session.flash_data[k].endurance - 1)))
             delete session.flash_data[k];
-        else
+        else if(session.flash_data[k].endurance !== 'indefinite')
             session.flash_data[k].endurance--;
     }
 
