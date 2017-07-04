@@ -274,6 +274,10 @@ const _socket = {
     },
 
     disconnect: function(){
+
+        if(!this || !this.req)
+            return;
+
         // request time, sans blurred time
         const t = (Date.now() - this.session_start - this.blurred) / 1000;
 
@@ -376,6 +380,11 @@ function getSession(req, res, callback){
             }
             else {
                 update.session(session, { $set: { last: Date.now() }}, function(err, session){
+                    if(err){
+                        log.error('establish session / update error');
+                        return callback(true);
+                    }
+
                     session.continued = true;
                     callback(err, this.req, this.res, session)
                 }.bind(this));
@@ -634,8 +643,10 @@ function sessionSave(session, request, callback){
     else {
         // an old session: all that needs be updated is request
         update.session(session, {$push: {reqs: request}}, function(err, doc){
-            if(err)
-                return callback('db session update error');
+            if(err){
+                log.error('db session update error');
+                return callback(true);
+            }
 
             if(opts.log_all)
                 log.session(doc, 'session active [ updated ]');
@@ -724,7 +735,7 @@ function Flash(field, value, endurance, cb){
 const update = {
     session: function(session, params, cb){
 
-        var keys = update._keys(params);
+        const keys = update._keys(params);
 
         Session.findByIdAndUpdate(session._id, params, { new: true }, function(err, doc){
             if(err)
