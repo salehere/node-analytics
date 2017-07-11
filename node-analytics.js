@@ -107,15 +107,40 @@ const opts = {
   , log_opts:   {
         pre: 'n-a'
     }
+  , mongoose_params: {
+        server: {
+            auto_reconnect: true,
+            reconnectTries: Number.MAX_VALUE,
+            reconnectInterval: 3000,
+            keepAlive: 1,
+            connectTimeoutMS: 30000,
+            socketOptions: {
+                keepAlive: 1,
+                connectTimeoutMS: 30000
+            },
+            poolSize: 50
+        },
+        replset: {
+            keepAlive: 1,
+            connectTimeoutMS: 30000,
+            socketOptions: {
+                keepAlive: 1,
+                connectTimeoutMS: 30000
+            }
+        }
+    }
 };
 
 log("active: wait for MongoDB, GeoIP, & WebSocket");
 log("don't forget to copy", chalk.red('node-analytics-client.js'), "to public directory");
 
 function mongoDB(cb){
+
     // Connect to MongoDB
-    let db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
-    db = mongoose.connect(db_url).connection;
+    const db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
+
+    db = mongoose.connect(db_url, opts.mongoose_params).connection;
+
     db.on('error', function(err) {
         log.error('MongoDB error: Data will not be saved :: err:', err)
     });
