@@ -139,14 +139,32 @@ function mongoDB(cb){
     // Connect to MongoDB
     const db_url = 'mongodb://' + opts.db_host + ':' + opts.db_port + '/' + opts.db_name;
 
-    db = mongoose.connect(db_url, opts.mongoose_params).connection;
+    db = mongoose.connection;
 
-    db.on('error', function(err) {
-        log.error('MongoDB error: Data will not be saved :: err:', err)
+    const db_connect = setTimeout(() => {
+        log(chalk.cyan('MONGOOSE.CONNECT'));
+        mongoose.connect(db_url, opts.mongoose_params)
+    }, 500);
+
+    db.on('connecting', () => {
+        log(chalk.yellow('MongoDB connecting'));
     });
-    db.once('open', function() {
-        log('MongoDB connection successful');
+    db.on('error', (err) => {
+        log.error(chalk.red('MongoDB error'), err);
+    });
+    db.on('connected', () => {
+        log(chalk.yellow('MongoDB connected:'), 'Wait for open.');
+        clearTimeout(db_connect);
+    });
+    db.once('open', () => {
+        log(chalk.green('MongoDB connection open'));
         cb(null);
+    });
+    db.on('reconnected', () => {
+        log(chalk.green('MongoDB reconnected.'));
+    });
+    db.on('disconnected', () => {
+        log.error(chalk.red('MongoDB disconnected!'), 'Attempting reconnect.');
     });
 }
 
