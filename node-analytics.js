@@ -142,7 +142,7 @@ function mongoDB(cb){
     db = mongoose.connection;
 
     const db_connect = setTimeout(() => {
-        log(chalk.cyan('MONGOOSE.CONNECT'));
+        log(chalk.cyan('mongoose.connect'));
         mongoose.connect(db_url, opts.mongoose_params)
     }, 500);
 
@@ -154,7 +154,9 @@ function mongoDB(cb){
     });
     db.on('connected', () => {
         log(chalk.yellow('MongoDB connected:'), 'Wait for open.');
-        clearTimeout(db_connect);
+
+        if(db_connect)
+            clearTimeout(db_connect);
     });
     db.once('open', () => {
         log(chalk.green('MongoDB connection open'));
@@ -845,7 +847,13 @@ function getCookies(src){
     let cookies = cookie.parse(src || '');
     for(let k in cookies){
         if(k.indexOf('na_') === 0){
-            cookies[k] = AES.decrypt(cookies[k]);
+            try {
+                cookies[k] = AES.decrypt(cookies[k]);
+            }
+            catch(err){
+                log.error('getCookies error', err);
+                delete cookies[k];
+            }
         }
     }
 
