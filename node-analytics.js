@@ -493,8 +493,6 @@ function getSession(req, res, cb){
 // set cookies
 function setCookies(req, res, session, cb){
 
-    log('session into setCookies', session)
-
     const now = new Date();
 
     // Set cookies
