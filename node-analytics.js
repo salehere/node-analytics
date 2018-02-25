@@ -1,7 +1,5 @@
 /*
  * node-analytics
- * Copyright(c) 2016 Andrew Lake
- * MIT Licensed
  */
 
 'use strict';
@@ -35,55 +33,59 @@ let log = require('andrao-logger')('n-a');
 // -------------------------------------------------------------
 
 const Request_Schema = mongoose.Schema({
-    _id: { type: String, unique: true, index: true }
-    , host: String
-    , date: { type: Date, default: Date.now }
-    , url: { type: String, index: true }
-    , query: [{ field: String, value: String }]
-    , ref: { type: String, index: true }
-    , referrer: String
-    , method: { type: String }
-    , time: Number
-    , reaches: [String]
-    , pauses: [{
+    _id: { type: String, unique: true, index: true },
+    host: String,
+    date: { type: Date, default: Date.now },
+    url: { type: String, index: true },
+    query: [{ field: String, value: String }],
+    ref: { type: String, index: true },
+    referrer: String,
+    method: String,
+    time: Number,
+    reaches: [String],
+    pauses: [{
         _id: false,
         id: String,
         time: Number
-    }]
-    , clicks: [String]
+    }],
+    clicks: [String]
 });
 const Session_Schema = mongoose.Schema({
-    user: { type: String, index: true }
-    , name: { type: String, index: true }
-    , date: { type: Date, default: Date.now }
-    , last: { type: Date, default: Date.now }
-    , ip: String
-    , is_bot: { type: Boolean, default: true }
-    , geo: {
-        city:    { type: String, index: true }
-        , state:   { type: String, index: true }
-        , country: { type: String, index: true }
-        , continent: { type: String, index: true }
-        , time_zone: { type: String, index: true }
-    }
-    , system: {
+    user: { type: String, index: true },
+    name: { type: String, index: true },
+    date: { type: Date, default: Date.now },
+    last: { type: Date, default: Date.now },
+    ip: String,
+    is_bot: { type: Boolean, default: true },
+    geo: {
+        _id: false,
+        city:    { type: String, index: true },
+        state:   { type: String, index: true },
+        country: { type: String, index: true },
+        continent: { type: String, index: true },
+        time_zone: { type: String, index: true }
+    },
+    system: {
         os: {
-            name: String
-            , version: String
+            _id: false,
+            name: String,
+            version: String
+        },
+        browser: {
+            _id: false,
+            name: String,
+            version: String
         }
-        , browser: {
-            name: String
-            , version: String
-        }
-    }
-    , time: Number
-    , resolution: {
-        width: Number
-        , height: Number
-    }
-    , reqs: [Request_Schema]
-    , state: String
-    , flash_data: mongoose.Schema.Types.Mixed
+    },
+    time: Number,
+    resolution: {
+        _id: false,
+        width: Number,
+        height: Number
+    },
+    reqs: [Request_Schema],
+    state: String,
+    flash_data: mongoose.Schema.Types.Mixed
 });
 const Session = mongoose.model('Session', Session_Schema);
 
@@ -91,23 +93,23 @@ module.exports = analytics;
 module.exports.sessions = sessions;
 
 const opts = {
-    db_host:    '127.0.0.1'
-  , db_port:    27017
-  , db_name:    'node_analytics_db'
-  , ws_port:    8080
-  , ws_server:  false
-  , s_io:       false
-  , geo_ip:     true
-  , mmdb:       'GeoLite2-City.mmdb'
-  , log:        true
-  , log_all:    false
-  , error_log:  true
-  , secure:     true
-  , secret:     'changeMe'
-  , log_opts:   {
+    db_host:    '127.0.0.1',
+    db_port:    27017,
+    db_name:    'node_analytics_db',
+    ws_port:    8080,
+    ws_server:  false,
+    s_io:       false,
+    geo_ip:     true,
+    mmdb:       'GeoLite2-City.mmdb',
+    log:        true,
+    log_all:    false,
+    error_log:  true,
+    secure:     true,
+    secret:     'changeMe',
+    log_opts:   {
         pre: 'n-a'
-    }
-  , mongoose_params: {
+    },
+    mongoose_params: {
         server: {
             auto_reconnect: true,
             reconnectTries: Number.MAX_VALUE,
@@ -263,8 +265,9 @@ function socketConnection(socket){
 
         // Trivial not-bot check: socket connects;
         //   Could / should be improved to having done action on page
+
         if(socket.session.is_bot)
-            update.session(socket.session, { $set: { is_bot: false }});
+            Update.session(socket.session, { $set: { is_bot: false }});
 
         if(!socket.session.resolution)
             socket.on('resolution', _socket.resolution.bind(socket));
@@ -286,21 +289,21 @@ function socketConnection(socket){
 const _socket = {
     click: function(id){
         if(this.req)
-            update.request(this, { $push: { clicks : id }});
+            Update.request(this, { $push: { clicks : id }});
 
         if(opts.log)
             log.session(this.session, chalk.green('click'), '@', chalk.cyan(id))
     },
     reach: function(id){
         if(this.req)
-            update.request(this, { $push: { reaches: id }});
+            Update.request(this, { $push: { reaches: id }});
 
         if(opts.log)
             log.session(this.session, chalk.yellow('reach'), '@', chalk.cyan(id))
     },
     pause: function(params){
         if(this.req)
-            update.request(this, { $push: { pauses: params }});
+            Update.request(this, { $push: { pauses: params }});
 
         if(opts.log)
             log.session(this.session, chalk.magenta('pause'), `for ${params.time}s @`, chalk.cyan(params.id));
@@ -315,7 +318,7 @@ const _socket = {
     },
 
     resolution: function(params){
-        update.session(this.session, { $set: { resolution: params }});
+        Update.session(this.session, { $set: { resolution: params }});
     },
 
     disconnect: function(){
@@ -334,9 +337,9 @@ const _socket = {
         // update request & session
         this.req.time = t;
         if(this.req)
-            update.request(this, { $set: { time: t }});
+            Update.request(this, { $set: { time: t }});
 
-        update.session(this.session, { $set: { session_time: session_t }});
+        Update.session(this.session, { $set: { session_time: session_t }});
 
         if(opts.log)
             log.session(this.session, chalk.red(t));
@@ -344,6 +347,8 @@ const _socket = {
 };
 
 // ===============
+
+const session_fields = '_id user name date last flash_data';
 
 function analytics(opts_in){
     for(let k in opts_in)
@@ -365,6 +370,7 @@ function analytics(opts_in){
         log(chalk.green('NODE ANALYTICS READY'));
     });
 
+
     // HTTP request:
     return function(req, res, next){
 
@@ -373,7 +379,7 @@ function analytics(opts_in){
             return next();
 
         async.waterfall([
-            function(cb){
+            (cb) => {
                 getSession(req, res, cb);
             },
             setCookies,
@@ -382,7 +388,7 @@ function analytics(opts_in){
             logRequest,
             sessionSave,
             sessionFlash
-        ], function(err, session){
+        ], (err, session) => {
             if(err){
                 log.error(err);
                 next();
@@ -397,7 +403,7 @@ function analytics(opts_in){
 // =====================
 
 // populate var session; returns boolean on whether newly formed
-function getSession(req, res, callback){
+function getSession(req, res, cb){
 
     const now = new Date();
 
@@ -411,10 +417,10 @@ function getSession(req, res, callback){
         if(opts.log_all)
             log('Session cookie found:', cookies.na_session);
 
-        Session.findById(cookies.na_session, function(err, session){
+        Session.findById(cookies.na_session, session_fields).lean().exec(function(err, session){
             if(err){
-                log.error(err);
-                return callback(err);
+                log.error('getSession error', err);
+                return cb(err);
             }
 
             if(!session){
@@ -427,15 +433,19 @@ function getSession(req, res, callback){
                     newSession();
             }
             else {
-                update.session(session, { $set: { last: Date.now() }}, function(err, session){
+                Update.session(session, {
+                    $set: {
+                        last: Date.now()
+                    }
+                }, (err, session) => {
                     if(err){
                         log.error('establish session / update error');
-                        return callback(true);
+                        return cb(true);
                     }
 
                     session.continued = true;
-                    callback(err, this.req, this.res, session)
-                }.bind(this));
+                    cb(err, this.req, this.res, session)
+                });
             }
 
         }.bind({
@@ -455,10 +465,10 @@ function getSession(req, res, callback){
 
         // OLD USER, NEW SESSION
 
-        callback(null, req, res, new Session({
+        cb(null, req, res, new Session({
             user: cookies.na_user,
             new_session: true
-        }));
+        }).toObject({ virtuals: true }));
 
         if(opts.log_all)
             log.timer('getSession 1', now);
@@ -467,11 +477,13 @@ function getSession(req, res, callback){
 
         // NEW USER, NEW SESSION
         // Initiate session to get _id
-        const session = new Session();
+        let session = new Session();
         session.user = session._id.toString();
         session.new_user = true;
 
-        callback(null, req, res, session);
+        session = session.toObject({ virtuals: true });
+
+        cb(null, req, res, session);
 
         if(opts.log_all)
             log.timer('getSession 2', now);
@@ -479,7 +491,9 @@ function getSession(req, res, callback){
 }
 
 // set cookies
-function setCookies(req, res, session, callback){
+function setCookies(req, res, session, cb){
+
+    log('session into setCookies', session)
 
     const now = new Date();
 
@@ -495,21 +509,20 @@ function setCookies(req, res, session, callback){
         secure:     opts.secure
     });
 
-    callback(null, req, res, session)
+    cb(null, req, res, session);
 
     if(opts.log_all)
         log.timer('setCookies', now);
 }
 
+
 // append session data
-function sessionData(req, res, session, callback){
+function sessionData(req, res, session, cb){
 
     const now = new Date();
 
-    if(session.continued){
-        callback(null, req, res, session);
-        return true;
-    }
+    if(session.continued)
+        return cb(null, req, res, session);
 
     async.parallelLimit([
             getIp,
@@ -517,7 +530,7 @@ function sessionData(req, res, session, callback){
             getSystem
         ], 2,
         function(err){
-            callback(err, this.req, this.res, this.session);
+            cb(err, this.req, this.res, this.session);
 
             if(opts.log_all)
                 log.timer('sessionData', now);
@@ -542,15 +555,24 @@ function sessionData(req, res, session, callback){
         if(!geo_lookup)
             return cb(null);
 
-        var loc = geo_lookup.get(session.ip);
+        const loc = geo_lookup.get(session.ip);
+
+        if(!session.geo)
+            session.geo = {};
+
 
         if(loc){
             try {
-                if(loc.city) session.geo.city = loc.city.names.en;
-                if(loc.subdivisions) session.geo.state = loc.subdivisions[0].iso_code;
-                if(loc.country) session.geo.country = loc.country.iso_code;
-                if(loc.continent) session.geo.continent = loc.continent.code;
-                if(loc.location) session.geo.time_zone = loc.location.time_zone;
+                if(loc.city)
+                    session.geo.city = loc.city.names.en;
+                if(loc.subdivisions)
+                    session.geo.state = loc.subdivisions[0].iso_code;
+                if(loc.country)
+                    session.geo.country = loc.country.iso_code;
+                if(loc.continent)
+                    session.geo.continent = loc.continent.code;
+                if(loc.location)
+                    session.geo.time_zone = loc.location.time_zone;
             }
             catch(e){
                 log.error('geoIP error:', e);
@@ -564,6 +586,15 @@ function sessionData(req, res, session, callback){
     function getSystem(cb){
         var agent = useragent.parse(req.headers['user-agent']);
         var os = agent.os;
+
+        if(!session.system)
+            session.system = {};
+
+        if(!session.system.browser)
+            session.system.browser = {};
+        if(!session.system.os)
+            session.system.os = {};
+
         session.system.browser.name = agent.family;
         session.system.browser.version = agent.major + '.' + agent.minor + '.' + agent.patch;
 
@@ -574,9 +605,9 @@ function sessionData(req, res, session, callback){
     }
 }
 
-// return new request document
-// create req cookie
-function newRequest(req, res, session, callback){
+
+// return new request document, create req cookie
+function newRequest(req, res, session, cb){
 
     const now = new Date();
 
@@ -610,12 +641,15 @@ function newRequest(req, res, session, callback){
         secure:     opts.secure
     });
 
+
     // return request object: will be added at sessionSave();
-    callback(null, req, res, session, request)
+    cb(null, req, res, session, request);
+
 
     if(opts.log_all)
         log.timer('newRequest', now);
 }
+
 
 // log request
 function logRequest(req, res, session, request, cb){
@@ -701,39 +735,47 @@ function logRequest(req, res, session, request, cb){
     }
 }
 
+
 // save / update session to DB & proceed to socket
-function sessionSave(session, request, callback){
+function sessionSave(session, request, cb){
 
     const now = new Date();
 
     if(!session.continued){
-        session.reqs.push(request);
-        session.save(function(err){
+
+        session.reqs = [request];
+
+        Update.session(
+            session,
+            {  $set: session  },
+        (err, session) => {
             if(err)
-                return callback('db session save error');
+                return cb('db session save error');
 
             if(opts.log_all)
                 log.session(session, 'session active [ new ]');
 
-            callback(null, this);
+            cb(null, session);
 
             if(opts.log_all)
                 log.timer('sessionSave 1', now);
-
-        }.bind(session));
+        })
     }
     else {
         // an old session: all that needs be updated is request
-        update.session(session, {$push: {reqs: request}}, function(err, doc){
+        Update.session(
+            session,
+            {  $push: { reqs: request }  },
+        (err, session) => {
             if(err){
                 log.error('db session update error');
-                return callback(true);
+                return cb(true);
             }
 
             if(opts.log_all)
-                log.session(doc, 'session active [ updated ]');
+                log.session(session, 'session active [ updated ]');
 
-            callback(null, doc);
+            cb(null, session);
 
             if(opts.log_all)
                 log.timer('sessionSave 2', now);
@@ -741,16 +783,16 @@ function sessionSave(session, request, callback){
     }
 }
 
-function sessionFlash(session, callback){
+function sessionFlash(session, cb){
 
     const now = new Date();
 
-    // ===========================
-    // SESSION OBJECT FUNCTIONS
-    // ===========================
-    session.identify = Identify.bind(session);
 
+    // SESSION OBJECT FUNCTIONS
+    session.identify = Identify.bind(session);
     session.flash = Flash.bind(session);
+    session.save = Update.session_save.bind(session);
+
 
     // Expire and clear flash data
     for(let k in session.flash_data){
@@ -760,24 +802,27 @@ function sessionFlash(session, callback){
             session.flash_data[k].endurance--;
     }
 
-    update.session(session, { $set: { flash_data: session.flash_data }}, function(err){
+
+    Update.session(session, {
+        $set: {
+            flash_data: session.flash_data
+        }
+    }, function(err){
         if(err)
             log.error('sessionFlash update error', err);
 
-        callback(null, this);
+        cb(null, this);
 
         if(opts.log_all)
             log.timer('sessionFlash', now);
 
     }.bind(session));
-
-
 }
 
 // =====================
 
 function Identify(name){
-    update.session(this, { $set: { name: name }}, (err) => {
+    Update.session(this, { $set: { name: name }}, (err) => {
         if(err)
             log.error('session.associate: name save error', err);
     });
@@ -792,6 +837,7 @@ function Flash(field, value, endurance, cb){
 
         return this.flash_data[field].val;
     }
+
 
     // Save new field value for next session
     else {
@@ -812,7 +858,7 @@ function Flash(field, value, endurance, cb){
             val: value,
             endurance: endurance
         };
-        update.session(this, { $set: { flash_data: this.flash_data }}, (err, doc) => {
+        Update.session(this, { $set: { flash_data: this.flash_data }}, (err, doc) => {
             if(err)
                 log.error('flash data save error', err);
 
@@ -824,58 +870,85 @@ function Flash(field, value, endurance, cb){
 
 // =====================
 
-const update = {
-    session: function(session, params, cb){
+const Update = {
 
-        const keys = update._keys(params);
+    session_save: function(cb){
+        const session = this;
+        Update.session(session, {
+            $set: session
+        }, cb);
+    },
 
-        Session.findByIdAndUpdate(session._id, params, { new: true }, function(err, doc){
+    session: function(session, upd, cb){
+
+        const keys = Update._keys(upd);
+
+        Session.findByIdAndUpdate(
+            session._id,
+            upd,
+            {
+                new: true,
+                fields: session_fields,
+                upsert: true
+            }
+        ).lean().exec(function(err, doc){
             if(err)
-                log.error('session update error [', this, ']', err);
-            else if(opts.log_all)
-                log.session(doc, 'session updated [', this, ']');
-            
+                log.error('Update.session error [', this, ']', err);
+            else if(!doc)
+                log.error('Update.session no session found!', session);
+            else if(doc && opts.log_all)
+                log.session(doc, 'Update.session success [', this, ']');
+
             if(cb)
-                return cb(err, doc);
+                cb(err, doc);
+
         }.bind(keys))
     },
-    request: function(socket, params_in, callback){
-        
-        let params = {};
 
-        for(let k in params_in){
+    request: function(socket, upd_in, cb){
+
+        let upd = {};
+
+        for(let k in upd_in){
             // $push: { clicks: id }
             // -->
             // $push: { reqs.$.clicks: id }
 
-            if(!params[k])
-                params[k] = {};
+            if(!upd[k])
+                upd[k] = {};
 
-            for(let k2 in params_in[k]){
+            for(let k2 in upd_in[k]){
                 let req_key = 'reqs.$.' + k2;
-                params[k][req_key] = params_in[k][k2];
+                upd[k][req_key] = upd_in[k][k2];
             }
         }
 
-        let keys = update._keys(params);
-        
+
+        let keys = Update._keys(upd);
+
         Session.update({
             _id: socket.session._id,
             "reqs._id": socket.req._id
-        }, params, function(err, raw){
+        }, upd, function(err, raw){
+
+            const socket = this.socket;
+
             if(err)
-                log.error('request update error [', this.keys, ']', this.socket.req._id, err);
+                log.error('Update.request error [', this.keys, ']', socket.session._id, socket.req._id, err);
+            else if(raw.n < 1)
+                log.error('Update.request not found!', socket.session._id, socket.req._id);
             else if(opts.log_all)
-                log.session(this.socket.session, 'request updated [', this.keys, ']');
-            
-            if(callback)
-                return callback(err);
+                log.session(socket.session, 'Update.request success [', this.keys, ']');
+
+            if(cb)
+                return cb(err);
 
         }.bind({
             socket: socket,
             keys: keys
         }))
     },
+
     _keys: function(params){
 
         let keys = [];
@@ -918,22 +991,22 @@ const AES = {
 
 // =====================
 
-function sessions(options, callback){
+function sessions(options, cb){
 
-    if(!callback){
-        callback = options;
+    if(!cb){
+        cb = options;
         options = { is_bot: false };
     }
 
     var n = 32;
 
     Session.find(options)
-            .sort({date: 'desc'})
-            .limit(n)
-            .exec(function(err, results){
-                if(err)
-                    log.error('Sessions query error:', err);
+        .sort({date: 'desc'})
+        .limit(n)
+        .exec(function(err, results){
+            if(err)
+                log.error('Sessions query error:', err);
 
-                callback(err, results)
-            });
+            cb(err, results)
+        });
 }
