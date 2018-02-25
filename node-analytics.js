@@ -398,6 +398,9 @@ function analytics(opts_in){
 
 // populate var session; returns boolean on whether newly formed
 function getSession(req, res, callback){
+
+    const now = new Date();
+
     const cookies = getCookies(req.headers.cookie);
 
     // cookies.na_session  :: session._id
@@ -455,7 +458,10 @@ function getSession(req, res, callback){
         callback(null, req, res, new Session({
             user: cookies.na_user,
             new_session: true
-        }))
+        }));
+
+        if(opts.log_all)
+            log.timer('getSession 1', now);
     }
     function newSession(){
 
@@ -466,11 +472,16 @@ function getSession(req, res, callback){
         session.new_user = true;
 
         callback(null, req, res, session);
+
+        if(opts.log_all)
+            log.timer('getSession 2', now);
     }
 }
 
 // set cookies
 function setCookies(req, res, session, callback){
+
+    const now = new Date();
 
     // Set cookies
     res.cookie('na_session', AES.encrypt(session._id.toString()), {
@@ -485,10 +496,15 @@ function setCookies(req, res, session, callback){
     });
 
     callback(null, req, res, session)
+
+    if(opts.log_all)
+        log.timer('setCookies', now);
 }
 
 // append session data
 function sessionData(req, res, session, callback){
+
+    const now = new Date();
 
     if(session.continued){
         callback(null, req, res, session);
@@ -501,7 +517,11 @@ function sessionData(req, res, session, callback){
             getSystem
         ], 2,
         function(err){
-            return err ? callback(err) : callback(null, this.req, this.res, this.session);
+            callback(err, this.req, this.res, this.session);
+
+            if(opts.log_all)
+                log.timer('sessionData', now);
+
         }.bind({
             req: req,
             res: res,
@@ -557,6 +577,9 @@ function sessionData(req, res, session, callback){
 // return new request document
 // create req cookie
 function newRequest(req, res, session, callback){
+
+    const now = new Date();
+
     const request = {
         _id: `r${crypto.randomBytes(16).toString('hex')}${Date.now()}`,
         host: req.hostname,
@@ -589,10 +612,15 @@ function newRequest(req, res, session, callback){
 
     // return request object: will be added at sessionSave();
     callback(null, req, res, session, request)
+
+    if(opts.log_all)
+        log.timer('newRequest', now);
 }
 
 // log request
 function logRequest(req, res, session, request, cb){
+
+    const now = new Date();
 
     if(opts.log){
         onHeaders(res, log_start.bind(res));
@@ -603,6 +631,9 @@ function logRequest(req, res, session, request, cb){
     }
 
     cb(null, session, request);
+
+    if(opts.log_all)
+        log.timer('logRequest', now);
 
     /// ==============
 
@@ -672,6 +703,9 @@ function logRequest(req, res, session, request, cb){
 
 // save / update session to DB & proceed to socket
 function sessionSave(session, request, callback){
+
+    const now = new Date();
+
     if(!session.continued){
         session.reqs.push(request);
         session.save(function(err){
@@ -681,7 +715,10 @@ function sessionSave(session, request, callback){
             if(opts.log_all)
                 log.session(session, 'session active [ new ]');
 
-            return callback(null, this);
+            callback(null, this);
+
+            if(opts.log_all)
+                log.timer('sessionSave 1', now);
 
         }.bind(session));
     }
@@ -697,11 +734,16 @@ function sessionSave(session, request, callback){
                 log.session(doc, 'session active [ updated ]');
 
             callback(null, doc);
+
+            if(opts.log_all)
+                log.timer('sessionSave 2', now);
         });
     }
 }
 
 function sessionFlash(session, callback){
+
+    const now = new Date();
 
     // ===========================
     // SESSION OBJECT FUNCTIONS
@@ -724,7 +766,12 @@ function sessionFlash(session, callback){
 
         callback(null, this);
 
+        if(opts.log_all)
+            log.timer('sessionFlash', now);
+
     }.bind(session));
+
+
 }
 
 // =====================
