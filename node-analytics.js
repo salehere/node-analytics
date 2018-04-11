@@ -114,11 +114,13 @@ const opts = {
             auto_reconnect: true,
             reconnectTries: Number.MAX_VALUE,
             reconnectInterval: 3000,
-            keepAlive: 1,
+            keepAlive: 120,
             connectTimeoutMS: 30000,
             socketOptions: {
-                keepAlive: 1,
-                connectTimeoutMS: 30000
+                keepAlive: 120,
+                connectTimeoutMS: 30000,
+                reconnectTries: 500,
+                reconnectInterval: 3000,
             },
             poolSize: 50
         },
