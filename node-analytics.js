@@ -110,22 +110,14 @@ const opts = {
         pre: 'n-a'
     },
     mongoose_params: {
-        server: {
-            auto_reconnect: true,
-            reconnectTries: Number.MAX_VALUE,
-            reconnectInterval: 3000,
-            keepAlive: 120,
-            connectTimeoutMS: 30000,
-            socketOptions: {
-                keepAlive: 120,
-                connectTimeoutMS: 30000,
-                reconnectTries: 500,
-                reconnectInterval: 3000,
-            },
-            poolSize: 50
-        },
+        autoReconnect: true,
         keepAlive: true,
-        socketTimeoutMS: 30000
+        keepAliveInitialDelay: 120,
+        socketTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        poolSize: 50,
+        reconnectTries: 500,
+        reconnectInterval: 3000
     }
 };
 
