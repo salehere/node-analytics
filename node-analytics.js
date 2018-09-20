@@ -124,14 +124,8 @@ const opts = {
             },
             poolSize: 50
         },
-        replset: {
-            keepAlive: 1,
-            connectTimeoutMS: 30000,
-            socketOptions: {
-                keepAlive: 1,
-                connectTimeoutMS: 30000
-            }
-        }
+        keepAlive: true,
+        socketTimeoutMS: 30000
     }
 };
 
