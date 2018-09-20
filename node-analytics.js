@@ -110,6 +110,7 @@ const opts = {
         pre: 'n-a'
     },
     mongoose_params: {
+        useNewUrlParser: true,
         autoReconnect: true,
         keepAlive: true,
         keepAliveInitialDelay: 120,
