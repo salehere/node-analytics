@@ -174,7 +174,6 @@ var opts = {
 };
 
 log('active: wait for MongoDB, GeoIP, & WebSocket');
-log("don't forget to copy", _chalk2.default.red('node-analytics-client.js'), 'to public directory');
 
 function mongoDB(cb) {
   // Connect to MongoDB

@@ -128,7 +128,6 @@ const opts = {
 };
 
 log('active: wait for MongoDB, GeoIP, & WebSocket');
-log("don't forget to copy", chalk.red('node-analytics-client.js'), 'to public directory');
 
 function mongoDB(cb) {
   // Connect to MongoDB
