@@ -6,8 +6,8 @@
 // CLIENT OPTIONS
 // ==============
 var na_obj = {
-  ws_host: "pxmer.tplinkdns.com",
-  ws_port: 7071, // set to null if passing server object on server
+  ws_host: "localhost",
+  ws_port: 3031, // set to null if passing server object on server
   click_class: "pna-click",
   reach_class: "pna-reach",
   read_class: "pna-read",
