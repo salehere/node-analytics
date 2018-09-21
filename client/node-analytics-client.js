@@ -41,8 +41,6 @@ var na_pause = {};
 
     url += "/node-analytics";
 
-    console.log("connect:", url);
-
     return io.connect(url);
   }
 

@@ -524,7 +524,7 @@ function setCookies(req, res, session, cb) {
     httpOnly: true,
     secure: opts.secure,
   });
-  console.log('>>>session:', session.user, session._id);
+
   res.cookie('na_user', AES.encrypt(session.user), {
     maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
     httpOnly: true,
